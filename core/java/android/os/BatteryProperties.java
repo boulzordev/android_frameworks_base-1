@@ -33,10 +33,11 @@ public class BatteryProperties implements Parcelable {
     public int batteryFullCharge;
     public int batteryChargeCounter;
     public String batteryTechnology;
+    public int modFlag;
     public int modLevel;
+    public int modPowerSource;
     public int modStatus;
     public int modType;
-    public int modFlag;
 
     public BatteryProperties() {
     }
@@ -58,8 +59,10 @@ public class BatteryProperties implements Parcelable {
         batteryTechnology = other.batteryTechnology;
         modLevel = other.modLevel;
         modStatus = other.modStatus;
-        modType = other.modType;
         modFlag = other.modFlag;
+        modType = other.modType;
+        modPowerSource = other.modPowerSource;
+
     }
 
     /*
@@ -84,8 +87,10 @@ public class BatteryProperties implements Parcelable {
         batteryTechnology = p.readString();
         modLevel = p.readInt();
         modStatus = p.readInt();
-        modType = p.readInt();
         modFlag = p.readInt();
+        modType = p.readInt();
+        modPowerSource = p.readInt();
+
     }
 
     public void writeToParcel(Parcel p, int flags) {
@@ -105,8 +110,10 @@ public class BatteryProperties implements Parcelable {
         p.writeString(batteryTechnology);
         p.writeInt(modLevel);
         p.writeInt(modStatus);
-        p.writeInt(modType);
         p.writeInt(modFlag);
+        p.writeInt(modType);
+        p.writeInt(modPowerSource);
+
     }
 
     public static final Parcelable.Creator<BatteryProperties> CREATOR
