@@ -115,6 +115,14 @@ public class FingerprintGestureDispatcher extends IFingerprintClientActiveCallba
         }
     }
 
+    @Override
+    public void onClientActiveChangedWithPkg(boolean isActive, String pkg) {
+    }
+
+    @Override
+    public void onFingerprintEventCallback(int msg, int event, int reservedCode, int reservedCode2) {
+    }
+
     public boolean isFingerprintGestureDetectionAvailable() {
         if (!mHardwareSupportsGestures) return false;
 

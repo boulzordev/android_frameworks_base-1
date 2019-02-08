@@ -58,7 +58,7 @@ public abstract class AuthenticationClient extends ClientMonitor {
     protected IBiometricPromptReceiver mDialogReceiver = new IBiometricPromptReceiver.Stub() {
         @Override // binder call
         public void onDialogDismissed(int reason) {
-            if (mBundle != null && mDialogReceiverFromClient != null) {
+            if (mDialogReceiverFromClient != null) {
                 try {
                     mDialogReceiverFromClient.onDialogDismissed(reason);
                     if (reason == BiometricPrompt.DISMISSED_REASON_USER_CANCEL) {
@@ -110,7 +110,7 @@ public abstract class AuthenticationClient extends ClientMonitor {
     @Override
     public boolean onAcquired(int acquiredInfo, int vendorCode) {
         // If the dialog is showing, the client doesn't need to receive onAcquired messages.
-        if (mBundle != null) {
+        if (false) {
             try {
                 if (acquiredInfo != FingerprintManager.FINGERPRINT_ACQUIRED_GOOD) {
                     mStatusBarService.onFingerprintHelp(
@@ -126,8 +126,28 @@ public abstract class AuthenticationClient extends ClientMonitor {
                     notifyUserActivity();
                 }
             }
-        } else {
+        } else if ((vendorCode != 4 && vendorCode != 5 && vendorCode != 6) || !"com.android.systemui".equals(getOwnerString())) {
             return super.onAcquired(acquiredInfo, vendorCode);
+        } else {
+            switch (vendorCode) {
+                case 4:
+                    //MdmLogger.log("lock_unlock_failed", "finger", "2");
+                    break;
+                case 5:
+                    //MdmLogger.log("lock_unlock_success", "finger", "2");
+                    break;
+                case 6:
+                    //MdmLogger.log("lock_unlock_success", "finger", "3");
+                    break;
+                default:
+                    Slog.e("FingerprintService", "incorrect situation");
+                    break;
+            }
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append("Receive fake finger info: ");
+            stringBuilder.append(vendorCode);
+            Slog.i("FingerprintService", stringBuilder.toString());
+            return false;
         }
     }
 
@@ -258,8 +278,11 @@ public abstract class AuthenticationClient extends ClientMonitor {
             if (DEBUG) Slog.w(TAG, "client " + getOwnerString() + " is authenticating...");
 
             // If authenticating with system dialog, show the dialog
-            if (mBundle != null) {
+            if (true) {
                 try {
+                    if (mBundle == null) {
+                        mBundle = new Bundle();
+                    }
                     mStatusBarService.showFingerprintDialog(mBundle, mDialogReceiver);
                 } catch (RemoteException e) {
                     Slog.e(TAG, "Unable to show fingerprint dialog", e);
@@ -300,7 +323,7 @@ public abstract class AuthenticationClient extends ClientMonitor {
             // dialog, we do not need to hide it since it's already hidden.
             // If the device is in lockout, don't hide the dialog - it will automatically hide
             // after BiometricPrompt.HIDE_DIALOG_DELAY
-            if (mBundle != null && !mDialogDismissed && !mInLockout) {
+            if (!mDialogDismissed && !mInLockout) {
                 try {
                     mStatusBarService.hideFingerprintDialog();
                 } catch (RemoteException e) {

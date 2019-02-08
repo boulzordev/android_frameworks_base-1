@@ -21,4 +21,6 @@ package android.hardware.fingerprint;
  */
 oneway interface IFingerprintClientActiveCallback {
     void onClientActiveChanged(boolean isActive);
+    void onClientActiveChangedWithPkg(boolean isActive, String pkg);
+    void onFingerprintEventCallback(int msg, int event, int reservedCode, int reservedCode2);
 }

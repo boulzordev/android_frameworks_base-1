@@ -643,6 +643,44 @@ public class FingerprintManager implements BiometricFingerprintConstants {
         }
     }
 
+    @RequiresPermission(MANAGE_FINGERPRINT)
+    public int updateStatus(int status) {
+        if (mService == null) {
+            return 0;
+        }
+        try {
+            return mService.updateStatus(status);
+        } catch (RemoteException e) {
+            Slog.w(TAG, "Remote exception in updateStatus", e);
+            return 0;
+        }
+    }
+
+    @RequiresPermission(MANAGE_FINGERPRINT)
+    public String getAuthenticatedPackage() {
+        String pkg = "";
+        if (mService == null) {
+            return pkg;
+        }
+        try {
+            return mService.getAuthenticatedPackage();
+        } catch (RemoteException e) {
+            Slog.w(TAG, "Remote exception in getAuthenticatedPackage", e);
+            return pkg;
+        }
+    }
+
+    public boolean shouldBlockTouchForFP(int x, int y) {
+        if (mService != null) {
+            try {
+                return mService.shouldBlockTouchForFP(x, y);
+            } catch (RemoteException e) {
+                Slog.w(TAG, "Remote exception in shouldBlockTouch", e);
+            }
+        }
+        return false;
+    }
+
     /**
      * Remove given fingerprint template from fingerprint hardware and/or protected storage.
      * @param fp the fingerprint item to remove
@@ -1101,12 +1139,23 @@ public class FingerprintManager implements BiometricFingerprintConstants {
                 return mContext.getString(
                     com.android.internal.R.string.fingerprint_acquired_too_fast);
             case FINGERPRINT_ACQUIRED_VENDOR: {
+                            if (vendorCode == 2) {
+                    Slog.d(TAG, "similar fingerprint");
+                    return "";
+                } else if (vendorCode == 100) {
+                    Slog.d(TAG, "duplicated fingerprint");
+                    return "";
+                } else if (vendorCode == 3) {
+                    return "";
+                } else {
                     String[] msgArray = mContext.getResources().getStringArray(
                             com.android.internal.R.array.fingerprint_acquired_vendor);
                     if (vendorCode < msgArray.length) {
                         return msgArray[vendorCode];
                     }
                 }
+                }
+
         }
         Slog.w(TAG, "Invalid acquired message: " + acquireInfo + ", " + vendorCode);
         return null;

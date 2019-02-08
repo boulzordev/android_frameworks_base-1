@@ -24,12 +24,21 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.RemoteException;
+import android.text.TextUtils;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.View.OnTouchListener;
 import android.view.WindowManager;
+import android.view.WindowManager.LayoutParams;
 
 import com.android.internal.os.SomeArgs;
 import com.android.systemui.SystemUI;
+import com.android.systemui.R;
+import com.android.keyguard.KeyguardUpdateMonitor;
 import com.android.systemui.statusbar.CommandQueue;
+import com.android.systemui.statusbar.CommandQueue.Callbacks;
 
 public class FingerprintDialogImpl extends SystemUI implements CommandQueue.Callbacks {
     private static final String TAG = "FingerprintDialogImpl";
@@ -50,7 +59,15 @@ public class FingerprintDialogImpl extends SystemUI implements CommandQueue.Call
     private WindowManager mWindowManager;
     private IBiometricPromptReceiver mReceiver;
     private boolean mDialogShowing;
-
+    private View mTransparentIconView;
+    private boolean mFingerOnSensor = false;
+    private boolean mFingerOnView = false;
+    private boolean mFpSensorPressing;
+    private boolean mOnViewPressing;
+    private int mTransparentIconSize;
+    private boolean mTransparentIconShowing = false;
+    private String mAuthenticatedPkg = null;
+    
     private Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
@@ -82,6 +99,15 @@ public class FingerprintDialogImpl extends SystemUI implements CommandQueue.Call
                 case MSG_CLEAR_MESSAGE:
                     handleClearMessage();
                     break;
+                case 100:
+                    FingerprintDialogImpl.this.handleFingerprintAcquire(msg.arg1, msg.arg2);
+                    return;
+                case 101:
+                    FingerprintDialogImpl.this.handleFingerprintEnroll();
+                    return;
+                case 102:
+                    FingerprintDialogImpl.this.handleFingerprintAuthenticatedFail();
+                    return;
             }
         }
     };
@@ -93,7 +119,45 @@ public class FingerprintDialogImpl extends SystemUI implements CommandQueue.Call
         }
         getComponent(CommandQueue.class).addCallbacks(this);
         mWindowManager = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
-        mDialogView = new FingerprintDialogView(mContext, mHandler);
+        mDialogView = new FingerprintDialogView(mContext, mHandler, this);
+           this.mTransparentIconView = LayoutInflater.from(this.mContext).inflate(R.layout.op_fingerprint_icon, null);
+            this.mTransparentIconView.setOnTouchListener(new OnTouchListener() {
+                public boolean onTouch(View v, MotionEvent event) {
+                    int action = event.getAction();
+                    if (FingerprintDialogImpl.DEBUG && (action == 1 || action == 0)) {
+                        StringBuilder stringBuilder = new StringBuilder();
+                        stringBuilder.append("onTouchTransparent: ");
+                        stringBuilder.append(action);
+                        stringBuilder.append(", mDialogShowing = ");
+                        stringBuilder.append(FingerprintDialogImpl.this.mDialogShowing);
+                        stringBuilder.append(", mTransparentIconShowing = ");
+                        stringBuilder.append(FingerprintDialogImpl.this.mTransparentIconShowing);
+                        Log.d("FingerprintDialogImpl", stringBuilder.toString());
+                    }
+                    if (action == 0) {
+                        FingerprintDialogImpl.this.mFingerOnView = true;
+                        if (FingerprintDialogImpl.this.mDialogShowing && !FingerprintDialogImpl.this.mFpSensorPressing) {
+                            FingerprintDialogImpl.this.mOnViewPressing = true;
+                            FingerprintDialogImpl.this.mDialogView.postTimeOutRunnable();
+                            FingerprintDialogImpl.this.mDialogView.showFingerprintPressed();
+                        }
+                    } else if (action == 1) {
+                        FingerprintDialogImpl.this.mOnViewPressing = false;
+                        FingerprintDialogImpl.this.mFingerOnView = false;
+                        //FingerprintDialogImpl.this.mIsFaceUnlocked = false;
+                        FingerprintDialogImpl.this.updateTransparentIconLayoutParams(false);
+                        if (FingerprintDialogImpl.this.mTransparentIconShowing && !FingerprintDialogImpl.this.mDialogShowing) {
+                            FingerprintDialogImpl.this.mWindowManager.removeViewImmediate(FingerprintDialogImpl.this.mTransparentIconView);
+                            FingerprintDialogImpl.this.mTransparentIconShowing = false;
+                        }
+                        FingerprintDialogImpl.this.mDialogView.hideFingerprintPressed();
+                    }
+                    //FingerprintDialogImpl.this.handleQLTouchEvent(event);
+                    return true;
+                }
+            });
+            this.mDialogView.setTransparentIconView(this.mTransparentIconView);
+            this.mTransparentIconSize = this.mContext.getResources().getDimensionPixelSize(R.dimen.op_biometric_transparent_icon_size);
     }
 
     @Override
@@ -134,17 +198,39 @@ public class FingerprintDialogImpl extends SystemUI implements CommandQueue.Call
     }
 
     private void handleShowDialog(SomeArgs args) {
+        Bundle bundle = (Bundle) args.arg1;
+        String authenticatedPkg = bundle.getString("key_fingerprint_package_name", "");
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("authenticatedPkg=");
+        stringBuilder.append(authenticatedPkg);
+        if (!(authenticatedPkg == null || authenticatedPkg.equals(this.mAuthenticatedPkg))) {
+            this.mAuthenticatedPkg = authenticatedPkg;
+        }
+            if (TextUtils.isEmpty(this.mDialogView.getOwnerString())) {
+                this.mDialogView.setOwnerString(authenticatedPkg);
+            }
         if (DEBUG) Log.d(TAG, "handleShowDialog, isAnimatingAway: "
                 + mDialogView.isAnimatingAway());
         if (mDialogView.isAnimatingAway()) {
             mDialogView.forceRemove();
         } else if (mDialogShowing) {
+                this.mDialogView.updateIconVisibility(false);
+                this.mDialogView.updateFpDaemonStatus(5);
             Log.w(TAG, "Dialog already showing");
             return;
         }
         mReceiver = (IBiometricPromptReceiver) args.arg2;
         mDialogView.setBundle((Bundle)args.arg1);
         mWindowManager.addView(mDialogView, mDialogView.getLayoutParams());
+        this.mDialogView.setPressDimWindow(true);
+        this.mOnViewPressing = false;
+        this.mFpSensorPressing = false;
+            if (this.mTransparentIconShowing) {
+                updateTransparentIconLayoutParams(false);
+            } else {
+                this.mTransparentIconShowing = true;
+                this.mWindowManager.addView(this.mTransparentIconView, getIconLayoutParams());
+            }
         mDialogShowing = true;
     }
 
@@ -222,5 +308,145 @@ public class FingerprintDialogImpl extends SystemUI implements CommandQueue.Call
 
     private void handleUserCanceled() {
         handleHideDialog(true /* userCanceled */);
+    }
+
+
+    public void onFingerprintEventCallback(int acquireInfo, int vendorCode) {
+        if (DEBUG) {
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append("onFingerprintEventCallback: acquireInfo = ");
+            stringBuilder.append(acquireInfo);
+            stringBuilder.append(", vendorCode = ");
+            stringBuilder.append(vendorCode);
+            Log.d("FingerprintDialogImpl", stringBuilder.toString());
+        }
+        this.mHandler.obtainMessage(100, acquireInfo, vendorCode).sendToTarget();
+    }
+
+   private void handleFingerprintAcquire(int acquiredInfo, int vendorCode) {
+        boolean isInterActive = KeyguardUpdateMonitor.getInstance(this.mContext).isDeviceInteractive();
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("handleFingerprintAcquire: acquireInfo = ");
+        stringBuilder.append(acquiredInfo);
+        stringBuilder.append(", onViewPressing = ");
+        stringBuilder.append(this.mOnViewPressing);
+        stringBuilder.append(", SensorPressing = ");
+        stringBuilder.append(this.mFpSensorPressing);
+        stringBuilder.append(", vendorCode = ");
+        stringBuilder.append(vendorCode);
+        stringBuilder.append(", interactive = ");
+        stringBuilder.append(isInterActive);
+        stringBuilder.append(", IconShow = ");
+        stringBuilder.append(this.mTransparentIconShowing);
+        stringBuilder.append(", dialogShowing = ");
+        stringBuilder.append(this.mDialogShowing);
+        Log.d("FingerprintDialogImpl", stringBuilder.toString());
+        if (acquiredInfo == 6) {
+            this.mFingerOnSensor = vendorCode == 0;
+            if (DEBUG) {
+                StringBuilder stringBuilder2 = new StringBuilder();
+                stringBuilder2.append("handleFingerprintAcquire mFingerOnSensor = ");
+                stringBuilder2.append(this.mFingerOnSensor);
+                stringBuilder2.append(" mFingerOnView ");
+                stringBuilder2.append(this.mFingerOnView);
+                Log.d("FingerprintDialogImpl", stringBuilder2.toString());
+            }
+            if (!(this.mFingerOnSensor || this.mDialogShowing || this.mFingerOnView || !this.mTransparentIconShowing)) {
+                this.mWindowManager.removeViewImmediate(this.mTransparentIconView);
+                this.mTransparentIconShowing = false;
+            }
+        }
+        if (acquiredInfo == 6 && vendorCode == 0) {
+            this.mDialogView.removeTimeOutMessage();
+        }
+        if (acquiredInfo == 6 && vendorCode == 0 && !this.mOnViewPressing && this.mDialogShowing) {
+            this.mFpSensorPressing = true;
+            this.mDialogView.showFingerprintPressed();
+        } else if (acquiredInfo == 6 && vendorCode == 1 && !this.mOnViewPressing && this.mFpSensorPressing) {
+            updateTransparentIconLayoutParams(false);
+            if (this.mTransparentIconShowing && !this.mDialogShowing) {
+                this.mWindowManager.removeViewImmediate(this.mTransparentIconView);
+                this.mTransparentIconShowing = false;
+            }
+            this.mFpSensorPressing = false;
+            this.mDialogView.hideFingerprintPressed();
+        }
+    }
+
+    private void handleFingerprintEnroll() {
+        this.mDialogView.handleFpResultEvent();
+    }
+
+    private void handleFingerprintAuthenticatedFail() {
+        this.mDialogView.handleFpResultEvent();
+    }
+
+    private LayoutParams getIconLayoutParams() {
+        LayoutParams lp = new LayoutParams(this.mTransparentIconSize, this.mTransparentIconSize, 2305, 16777480, -3);
+        lp.privateFlags |= 16;
+        lp.setTitle("FingerprintTransparentIcon");
+        lp.gravity = 51;
+        lp.x = this.mContext.getResources().getDimensionPixelSize(R.dimen.op_biometric_transparent_icon_location_x);
+        lp.y = this.mContext.getResources().getDimensionPixelSize(R.dimen.op_biometric_transparent_icon_location_y);
+        return lp;
+    }
+
+    public void updateTransparentIconLayoutParams(boolean expand) {
+        if (this.mTransparentIconShowing) {
+            int w;
+            int h;
+            int x;
+            int y;
+            int orientation;
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append("updateTransparentIconLayoutParams: ");
+            stringBuilder.append(expand);
+            Log.d("FingerprintDialogImpl", stringBuilder.toString());
+            LayoutParams lp = getIconLayoutParams();
+            if (expand) {
+                w = -1;
+                h = -1;
+                x = 0;
+                y = 0;
+                orientation = 1;
+            } else {
+                w = this.mTransparentIconSize;
+                h = this.mTransparentIconSize;
+                x = this.mContext.getResources().getDimensionPixelSize(R.dimen.op_biometric_transparent_icon_location_x);
+                y = this.mContext.getResources().getDimensionPixelSize(R.dimen.op_biometric_transparent_icon_location_y);
+                orientation = -1;
+            }
+            lp.width = w;
+            lp.height = h;
+            lp.x = x;
+            lp.y = y;
+            lp.screenOrientation = orientation;
+            this.mWindowManager.updateViewLayout(this.mTransparentIconView, lp);
+        }
+    }
+
+    public void updateTransparentIconVisibility(int visibility) {
+        if (visibility != 8 || (!this.mOnViewPressing && !this.mFpSensorPressing)) {
+            this.mTransparentIconView.setVisibility(visibility);
+        }
+    }
+
+
+    public void resetState() {
+        this.mFpSensorPressing = false;
+        this.mOnViewPressing = false;
+        if (!this.mFingerOnView) {
+            //this.mIsFaceUnlocked = false;
+        }
+    }
+
+    public void forceShowDialog(Bundle b, IBiometricPromptReceiver receiver) {
+        this.mHandler.removeMessages(4);
+        this.mHandler.removeMessages(3);
+        this.mHandler.removeMessages(2);
+        SomeArgs args = SomeArgs.obtain();
+        args.arg1 = b;
+        args.arg2 = receiver;
+        handleShowDialog(args);
     }
 }

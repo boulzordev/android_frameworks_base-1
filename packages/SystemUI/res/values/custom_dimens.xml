@@ -26,4 +26,21 @@
     <dimen name="quick_qs_drag_handle_height">20dp</dimen>
     <dimen name="qs_header_image_offset">0dp</dimen>
     <dimen name="qs_header_image_side_margin">0dp</dimen>
+    
+    <dimen name="fp_animation_width">550px</dimen>
+    <dimen name="aod_fp_indication_margingBottom">416px</dimen>
+     <dimen name="fp_animation_height">550px</dimen>
+    <dimen name="op_biometric_animation_view_y">1787px</dimen>
+    <dimen name="op_biometric_icon_flash_location_x">444px</dimen>
+    <dimen name="op_biometric_icon_flash_location_y">1966px</dimen>
+    <dimen name="op_biometric_icon_flash_width">190px</dimen>
+    <dimen name="op_biometric_icon_height">190px</dimen>
+    <dimen name="op_biometric_icon_normal_location_x">452px</dimen>
+    <dimen name="op_biometric_icon_normal_location_y">1970px</dimen>
+    <dimen name="op_biometric_icon_normal_width">174px</dimen>
+    <dimen name="op_biometric_icon_width">190px</dimen>
+    <dimen name="op_biometric_transparent_icon_location_x">427px</dimen>
+    <dimen name="op_biometric_transparent_icon_location_y">1945px</dimen>
+    <dimen name="op_biometric_transparent_icon_size">225px</dimen>
+    <dimen name="emergency_button_margin_top">155px</dimen>
 </resources>

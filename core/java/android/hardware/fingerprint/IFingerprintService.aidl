@@ -94,4 +94,8 @@ interface IFingerprintService {
 
     // Removes a callback set by addClientActiveCallback
     void removeClientActiveCallback(IFingerprintClientActiveCallback callback);
+    int updateStatus(int status);
+    int getStatus();
+    String getAuthenticatedPackage();
+    boolean shouldBlockTouchForFP(int x, int y);
 }
