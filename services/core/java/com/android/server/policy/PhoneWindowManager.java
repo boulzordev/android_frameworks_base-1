@@ -5488,8 +5488,11 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     if (DEBUG_LAYOUT) Slog.v(TAG, String.format(
                                     "Laying out navigation bar window: (%d,%d - %d,%d)",
                                     pf.left, pf.top, pf.right, pf.bottom));
-                } else if ((type == TYPE_SECURE_SYSTEM_OVERLAY || type == TYPE_SCREENSHOT)
+                } else if ((type == TYPE_SECURE_SYSTEM_OVERLAY || type == TYPE_SCREENSHOT
+                            || type == 2305 || type == 2304 || type == 2306)
                         && ((fl & FLAG_FULLSCREEN) != 0)) {
+                        
+                    Slog.e(TAG, "layoutWindowLw(fingerprint): IN_SCREEN");
                     // Fullscreen secure system overlays get what they ask for. Screenshot region
                     // selection overlay should also expand to full screen.
                     cf.set(displayFrames.mOverscan);

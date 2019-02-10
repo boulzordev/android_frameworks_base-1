@@ -590,7 +590,13 @@ public interface WindowManager extends ViewManager {
                 @ViewDebug.IntToString(from = TYPE_SCREENSHOT,
                         to = "SCREENSHOT"),
                 @ViewDebug.IntToString(from = TYPE_APPLICATION_OVERLAY,
-                        to = "APPLICATION_OVERLAY")
+                        to = "APPLICATION_OVERLAY"),
+                @ViewDebug.IntToString(from = TYPE_SYSTEM_FINGERPRINT,
+                        to = "SYSTEM_FINGERPRINT"),
+                @ViewDebug.IntToString(from = TYPE_SYSTEM_FINGERPRINT_DIM,
+                        to = "SYSTEM_FINGERPRINT_DIM"),
+                @ViewDebug.IntToString(from = TYPE_SYSTEM_FINGERPRINT_HIGH_LIGHT,
+                        to = "SYSTEM_FINGERPRINT_HIGH_LIGHT")
         })
         public int type;
 
@@ -987,6 +993,10 @@ public interface WindowManager extends ViewManager {
          * In multi-user systems shows only on the owning user's screen.
          */
         public static final int TYPE_APPLICATION_OVERLAY = FIRST_SYSTEM_WINDOW + 38;
+
+        public static final int TYPE_SYSTEM_FINGERPRINT = 2305;
+        public static final int TYPE_SYSTEM_FINGERPRINT_DIM = 2304;
+        public static final int TYPE_SYSTEM_FINGERPRINT_HIGH_LIGHT = 2306;
 
         /**
          * End of types of system windows.

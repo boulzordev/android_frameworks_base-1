@@ -530,7 +530,7 @@ public class KeyguardIndicationController {
             if (showing) {
                 updateDisclosure();
             }
-            KeyguardIndicationController.this.updateBottomMargins(showing);
+            //KeyguardIndicationController.this.updateBottomMargins(showing);
         }
 
         @Override

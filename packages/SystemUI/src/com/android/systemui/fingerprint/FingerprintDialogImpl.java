@@ -426,6 +426,7 @@ public class FingerprintDialogImpl extends SystemUI implements CommandQueue.Call
     }
 
     public void updateTransparentIconVisibility(int visibility) {
+        Log.e("FingerprintDialogImpl", "updateTransparentIconVisibility : visibility - " + visibility);
         if (visibility != 8 || (!this.mOnViewPressing && !this.mFpSensorPressing)) {
             this.mTransparentIconView.setVisibility(visibility);
         }
