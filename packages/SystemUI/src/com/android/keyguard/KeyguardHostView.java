@@ -153,6 +153,9 @@ public class KeyguardHostView extends FrameLayout implements SecurityCallback {
         mSecurityContainer.setLockPatternUtils(mLockPatternUtils);
         mSecurityContainer.setSecurityCallback(this);
         mSecurityContainer.showPrimarySecurityScreen(false);
+        if (this.mSecurityContainer.getCurrentSecuritySelection() != SecurityMode.Password) {
+            setPaddingRelative(getPaddingStart(), getResources().getDimensionPixelSize(R.dimen.emergency_button_margin_top) - getResources().getDimensionPixelSize(R.dimen.keyguard_security_view_top_margin), getPaddingEnd(), getPaddingBottom());
+        }    
     }
 
     /**

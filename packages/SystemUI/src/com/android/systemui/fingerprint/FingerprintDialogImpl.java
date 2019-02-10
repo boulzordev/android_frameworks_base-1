@@ -59,7 +59,7 @@ public class FingerprintDialogImpl extends SystemUI implements CommandQueue.Call
     private WindowManager mWindowManager;
     private IBiometricPromptReceiver mReceiver;
     private boolean mDialogShowing;
-    private View mTransparentIconView;
+    public View mTransparentIconView;
     private boolean mFingerOnSensor = false;
     private boolean mFingerOnView = false;
     private boolean mFpSensorPressing;

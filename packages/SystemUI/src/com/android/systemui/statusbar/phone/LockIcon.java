@@ -302,13 +302,13 @@ public class LockIcon extends KeyguardAffordanceView implements OnUserInfoChange
         KeyguardUpdateMonitor updateMonitor = KeyguardUpdateMonitor.getInstance(mContext);
         boolean fingerprintRunning = updateMonitor.isFingerprintDetectionRunning();
         boolean unlockingAllowed = updateMonitor.isUnlockingWithFingerprintAllowed();
-        if (mTransientFpError) {
+        if (false) {
             return STATE_FINGERPRINT_ERROR;
         } else if (mUnlockMethodCache.canSkipBouncer()) {
             return STATE_LOCK_OPEN;
         } else if (mUnlockMethodCache.isFaceUnlockRunning()) {
             return STATE_FACE_UNLOCK;
-        } else if (fingerprintRunning && unlockingAllowed) {
+        } else if (false) {
             return STATE_FINGERPRINT;
         } else {
             return STATE_LOCKED;

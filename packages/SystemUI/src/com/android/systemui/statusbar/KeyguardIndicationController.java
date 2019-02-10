@@ -39,6 +39,8 @@ import android.text.format.Formatter;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.FrameLayout.LayoutParams;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.app.IBatteryStats;
@@ -149,6 +151,14 @@ public class KeyguardIndicationController {
         mContext.registerReceiverAsUser(mTickReceiver, UserHandle.SYSTEM,
                 new IntentFilter(Intent.ACTION_TIME_TICK), null,
                 Dependency.get(Dependency.TIME_TICK_HANDLER));
+    }
+
+    private void updateBottomMargins(boolean keyguardShowing) {
+        if (keyguardShowing) {
+            LayoutParams lp = (LayoutParams) this.mIndicationArea.getLayoutParams();
+            lp.bottomMargin = this.mContext.getResources().getDimensionPixelSize(KeyguardUpdateMonitor.getInstance(this.mContext).isUnlockWithFingerprintPossible(KeyguardUpdateMonitor.getCurrentUser()) ? R.dimen.op_keyguard_indication_margin_bottom : R.dimen.keyguard_indication_margin_bottom);
+            this.mIndicationArea.setLayoutParams(lp);
+        }
     }
 
     /**
@@ -520,6 +530,7 @@ public class KeyguardIndicationController {
             if (showing) {
                 updateDisclosure();
             }
+            KeyguardIndicationController.this.updateBottomMargins(showing);
         }
 
         @Override
