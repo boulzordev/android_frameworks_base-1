@@ -193,9 +193,6 @@ public class FingerprintDialogView extends LinearLayout {
             //if (!FingerprintDialogView.this.mPm.isInteractive()) {
             //    FingerprintDialogView.this.setDisplayAodMode(2);
             //}
-                //            Bundle b = new Bundle();
-                //b.putString("key_fingerprint_package_name", "forceShow-keyguard");
-                //showFingerprintDialog(b, null);
             FingerprintDialogView.this.mIsScreenOn = true;
             FingerprintDialogView.this.mIsScreenTurningOn = false;
             FingerprintDialogView.this.updateIconVisibility(false);
@@ -1006,11 +1003,11 @@ public class FingerprintDialogView extends LinearLayout {
             this.mAodIndicationTextView.setVisibility(4);
             caseLog = "2";
         } else if (((this.mDeviceInteractive || this.mGoingToSleep) && isOccluded && !isBouncer) || isSimPin || isLaunchingCamera || ((this.mDeviceInteractive && !isShowing && isKeyguard(this.mOwnerString) && this.mIsScreenOn) || (this.mShowingKeyguard && !isPreventModeActivte && ((isQSExpanded && !isBouncer) || (isImeShow && isBouncer))))) {
-            this.mIconNormal.setVisibility(0);
-            this.mIconDim.setVisibility(0);
+            this.mIconNormal.setVisibility(4);
+            this.mIconDim.setVisibility(4);
             this.mIconDisable.setVisibility(4);
             this.mAodIndicationTextView.setVisibility(4);
-            this.mDialogImpl.updateTransparentIconVisibility(0);
+            this.mDialogImpl.updateTransparentIconVisibility(8);
             caseLog = "3";
         //} else if (this.mFaceUnlocked) {
          //   this.mIconNormal.setVisibility(4);
@@ -1199,20 +1196,6 @@ public class FingerprintDialogView extends LinearLayout {
     public void notifyBrightnessChange() {
         if (this.mShowOnWindow) {
             this.mIconDim.onBrightnessChange();
-        }
-    }
-
-    public void notifyFingerprintAuthenticated() {
-        if (!this.mIsKeyguardDone) {
-            this.mIsKeyguardDone = true;
-            //stopAnimation();
-            if (!this.mPm.isInteractive()) {
-                setDisplayAodMode(0);
-            }
-            updateFpDaemonStatus(6);
-            handleFpResultEvent();
-            updateIconVisibility(true);
-            this.mDialogImpl.hideFingerprintDialog();
         }
     }
 }

@@ -56,7 +56,6 @@ import android.hardware.fingerprint.IFingerprintClientActiveCallback.Stub;
 import android.hardware.fingerprint.IFingerprintService;
 import android.media.AudioManager;
 import android.os.BatteryManager;
-import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.IRemoteCallback;
@@ -236,8 +235,6 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
     private boolean mIsDreaming;
     private final DevicePolicyManager mDevicePolicyManager;
     private boolean mLogoutEnabled;
-    private boolean mDuringAcquired = false;
-    private boolean mScreenTurningOn = false;
 
     /**
      * Short delay before restarting fingerprint authentication after a successful try
@@ -381,17 +378,6 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
                     break;
                 case MSG_DEVICE_POLICY_MANAGER_STATE_CHANGED:
                     updateLogoutEnabled();
-                    break;
-                case 599:
-                    KeyguardUpdateMonitor.this.handleScreenturningOn();
-                    break;
-                case 600:
-                    if (KeyguardUpdateMonitor.this.mDuringAcquired) {
-                        KeyguardUpdateMonitor.this.mDuringAcquired = false;
-                        KeyguardUpdateMonitor.this.updateFingerprintListeningState();
-                        //KeyguardUpdateMonitor.this.handleFingerprintTimeout();
-                        
-                    }
                     break;
                 default:
                     super.handleMessage(msg);
@@ -538,7 +524,6 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
      * @param occluded
      */
     public void setKeyguardOccluded(boolean occluded) {
-        showFPDialogWhenNoWindow();
         mKeyguardOccluded = occluded;
         updateFingerprintListeningState();
     }
@@ -570,7 +555,6 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
         if (getUserCanSkipBouncer(userId)) {
             mTrustManager.unlockedByFingerprintForUser(userId);
         }
-        mFingerprintDialogView.notifyFingerprintAuthenticated();
         // Don't send cancel if authentication succeeds
         mFingerprintCancelSignal = null;
         for (int i = 0; i < mCallbacks.size(); i++) {
@@ -600,11 +584,9 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
     }
 
     private void handleFingerprintAcquired(int acquireInfo) {
-        if (acquireInfo != FingerprintManager.FINGERPRINT_ACQUIRED_GOOD || acquireInfo != 6) {
+        if (acquireInfo != FingerprintManager.FINGERPRINT_ACQUIRED_GOOD) {
             return;
         }
-            this.mHandler.removeMessages(600);
-            this.mHandler.sendEmptyMessageDelayed(600, 3000);
         for (int i = 0; i < mCallbacks.size(); i++) {
             KeyguardUpdateMonitorCallback cb = mCallbacks.get(i).get();
             if (cb != null) {
@@ -935,20 +917,11 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
 
         @Override
         public void onAuthenticationFailed() {
-           KeyguardUpdateMonitor.this.mHandler.removeMessages(600);
-            if (KeyguardUpdateMonitor.this.mDuringAcquired) {
-                KeyguardUpdateMonitor.this.mDuringAcquired = false;
-                KeyguardUpdateMonitor.this.updateFingerprintListeningState();
-            }
             handleFingerprintAuthFailed();
         };
 
         @Override
         public void onAuthenticationSucceeded(AuthenticationResult result) {
-                    KeyguardUpdateMonitor.this.mHandler.removeMessages(600);
-            if (KeyguardUpdateMonitor.this.mDuringAcquired) {
-                KeyguardUpdateMonitor.this.mDuringAcquired = false;
-            }
             Trace.beginSection("KeyguardUpdateMonitor#onAuthenticationSucceeded");
             handleFingerprintAuthenticated(result.getUserId());
             Trace.endSection();
@@ -956,21 +929,11 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
 
         @Override
         public void onAuthenticationHelp(int helpMsgId, CharSequence helpString) {
-            KeyguardUpdateMonitor.this.mHandler.removeMessages(600);
-            if (KeyguardUpdateMonitor.this.mDuringAcquired) {
-                KeyguardUpdateMonitor.this.mDuringAcquired = false;
-                KeyguardUpdateMonitor.this.updateFingerprintListeningState();
-            }
             handleFingerprintHelp(helpMsgId, helpString.toString());
         }
 
         @Override
         public void onAuthenticationError(int errMsgId, CharSequence errString) {
-            KeyguardUpdateMonitor.this.mHandler.removeMessages(600);
-            if (KeyguardUpdateMonitor.this.mDuringAcquired) {
-                KeyguardUpdateMonitor.this.mDuringAcquired = false;
-                KeyguardUpdateMonitor.this.updateFingerprintListeningState();
-            }
             handleFingerprintError(errMsgId, errString.toString());
         }
 
@@ -1175,9 +1138,6 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
             }
         }
         mGoingToSleep = true;
-        if (isFingerprintEnrolled(sCurrentUser)) {
-            showFPDialogWhenNoWindow();
-        }
         updateFingerprintListeningState();
     }
 
@@ -1201,9 +1161,6 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
                 cb.onScreenTurnedOn();
             }
         }
-        if (!this.mDeviceInteractive) {
-            updateFingerprintListeningState();
-        }
     }
 
     private void handleScreenTurnedOff() {
@@ -1215,7 +1172,6 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
                 cb.onScreenTurnedOff();
             }
         }
-        updateFingerprintListeningState();
     }
 
     private void handleDreamingStateChanged(int dreamStart) {
@@ -2148,50 +2104,7 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
         }
     }
 
-    public void notifyScreenTurningOn() {
-        Log.d("KeyguardUpdateMonitor", "notifyScreenTurningOn");
-        synchronized (this) {
-            this.mScreenTurningOn = true;
-        }
-        this.mHandler.sendEmptyMessage(599);
-    }
-
     public void setFingerprintDialogView(FingerprintDialogView fpView) {
         this.mFingerprintDialogView = fpView;
-    }
-
-    public void handleScreenturningOn() {
-        if (true) {
-            updateFingerprintListeningState();
-        }
-        int count = this.mCallbacks.size();
-        for (int i = 0; i < count; i++) {
-            KeyguardUpdateMonitorCallback cb = (KeyguardUpdateMonitorCallback) ((WeakReference) this.mCallbacks.get(i)).get();
-            if (cb != null) {
-                //cb.onScreenTurningOn();
-            }
-        }
-        if (!this.mDeviceInteractive && this.mIsDreaming && !isUnlockingWithFingerprintAllowed() && isFingerprintEnrolled(sCurrentUser)) {
-            showFPDialogWhenNoWindow();
-        }
-    }
-
-    private void showFPDialogWhenNoWindow() {
-        if (true) {
-            try {
-                Log.d("KeyguardUpdateMonitor", "showFPDialogWhenNoWindow");
-                Bundle b = new Bundle();
-                b.putString("key_fingerprint_package_name", "forceShow-keyguard");
-                if (this.mFingerprintDialogView != null) {
-                    this.mFingerprintDialogView.showFingerprintDialog(b, null);
-                }
-            } catch (Exception e) {
-                Log.e("KeyguardUpdateMonitor", "error: ", e);
-            }
-        }
-    }
-
-    public boolean isFingerprintEnrolled(int userId) {
-        return this.mFpm != null && this.mFpm.isHardwareDetected() && this.mFpm.getEnrolledFingerprints(userId).size() > 0;
     }
 }

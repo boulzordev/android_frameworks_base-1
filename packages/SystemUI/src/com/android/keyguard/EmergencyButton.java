@@ -94,7 +94,6 @@ public class EmergencyButton extends Button {
         mEnableEmergencyCallWhileSimLocked = mContext.getResources().getBoolean(
                 com.android.internal.R.bool.config_enable_emergency_call_while_sim_locked);
         mEmergencyAffordanceManager = new EmergencyAffordanceManager(context);
-        setPaintFlags(getPaintFlags() | 8);
     }
 
     @Override

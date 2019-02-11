@@ -1989,7 +1989,6 @@ public class KeyguardViewMediator extends SystemUI {
         synchronized (KeyguardViewMediator.this) {
             if (DEBUG) Log.d(TAG, "handleNotifyScreenTurningOn");
             mStatusBarKeyguardViewManager.onScreenTurningOn();
-            mUpdateMonitor.notifyScreenTurningOn();
             if (callback != null) {
                 if (mWakeAndUnlocking) {
                     mDrawnCallback = callback;
