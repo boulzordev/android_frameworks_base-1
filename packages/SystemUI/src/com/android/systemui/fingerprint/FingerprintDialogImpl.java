@@ -138,6 +138,10 @@ public class FingerprintDialogImpl extends SystemUI implements CommandQueue.Call
                         FingerprintDialogImpl.this.mFingerOnView = true;
                         if (FingerprintDialogImpl.this.mDialogShowing && !FingerprintDialogImpl.this.mFpSensorPressing) {
                             FingerprintDialogImpl.this.mOnViewPressing = true;
+                            FingerprintDialogImpl.this.mDialogView.mIconFlash.setVisibility(0);
+                            FingerprintDialogImpl.this.mDialogView.mIconNormal.setVisibility(4); 
+                            FingerprintDialogImpl.this.mDialogView.mIconDim.setVisibility(0);
+                            FingerprintDialogImpl.this.mDialogView.mIconDim.setAlpha(1);
                             FingerprintDialogImpl.this.mDialogView.postTimeOutRunnable();
                             FingerprintDialogImpl.this.mDialogView.showFingerprintPressed();
                         }
@@ -146,6 +150,10 @@ public class FingerprintDialogImpl extends SystemUI implements CommandQueue.Call
                         FingerprintDialogImpl.this.mFingerOnView = false;
                         //FingerprintDialogImpl.this.mIsFaceUnlocked = false;
                         FingerprintDialogImpl.this.updateTransparentIconLayoutParams(false);
+                        FingerprintDialogImpl.this.mDialogView.mIconFlash.setVisibility(4);
+                        FingerprintDialogImpl.this.mDialogView.mIconNormal.setVisibility(0); 
+                        FingerprintDialogImpl.this.mDialogView.mIconDim.setVisibility(4);
+                        FingerprintDialogImpl.this.mDialogView.mIconDim.setAlpha(0);
                         if (FingerprintDialogImpl.this.mTransparentIconShowing && !FingerprintDialogImpl.this.mDialogShowing) {
                             FingerprintDialogImpl.this.mWindowManager.removeViewImmediate(FingerprintDialogImpl.this.mTransparentIconView);
                             FingerprintDialogImpl.this.mTransparentIconShowing = false;

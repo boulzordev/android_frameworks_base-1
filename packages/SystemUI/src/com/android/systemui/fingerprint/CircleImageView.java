@@ -182,7 +182,7 @@ public class CircleImageView extends ImageView {
     public void setVisibility(int visibility) {
         super.setVisibility(visibility);
         if (this.mType == this.TYPE_DIM) {
-            updateIconDim();
+            //updateIconDim();
         }
     }
 

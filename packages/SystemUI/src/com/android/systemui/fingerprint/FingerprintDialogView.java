@@ -99,10 +99,10 @@ public class FingerprintDialogView extends LinearLayout {
     private View mTransparentIconView;
     private PowerManager mPm;
     private boolean mGoingToSleep;
-    private CircleImageView mIconDim;
-    private CircleImageView mIconDisable;
-    private CircleImageView mIconFlash;
-    private CircleImageView mIconNormal;
+    public CircleImageView mIconDim;
+    public CircleImageView mIconDisable;
+    public CircleImageView mIconFlash;
+    public CircleImageView mIconNormal;
     private boolean mIsKeyguardDone = false;
     private boolean mIsScreenOn;
     private boolean mIsScreenTurningOn;
@@ -141,10 +141,14 @@ public class FingerprintDialogView extends LinearLayout {
                 FingerprintDialogView.this.mDialogImpl.updateTransparentIconLayoutParams(false);
             }
             FingerprintDialogView.this.resetState();
-            FingerprintDialogView.this.setDisplayAodMode(0);
+            FingerprintDialogView.this.setDisplayAodMode(2);
             if (FingerprintDialogView.this.mIconDisable != null) {
                 FingerprintDialogView.this.mIconDisable.setAlpha(0.6f);
             }
+            
+            FingerprintDialogView.this.mIconNormal.setVisibility(0);
+            FingerprintDialogView.this.mIconDim.setVisibility(4);
+            FingerprintDialogView.this.mIconDisable.setVisibility(4);
         }
 
         @Override
@@ -159,6 +163,11 @@ public class FingerprintDialogView extends LinearLayout {
             //FingerprintDialogView.this.mFaceUnlocked = false;
             FingerprintDialogView.this.mGoingToSleep = false;
             FingerprintDialogView.this.mDeviceInteractive = false;
+            FingerprintDialogView.this.setDisplayAodMode(2);
+            FingerprintDialogView.this.mIconNormal.setVisibility(0);
+            FingerprintDialogView.this.mIconFlash.setVisibility(4);
+            FingerprintDialogView.this.mIconDim.setVisibility(4);
+            FingerprintDialogView.this.mIconDisable.setVisibility(4);
             FingerprintDialogView.this.updateFPIndicationText();
         }
 
@@ -190,27 +199,12 @@ public class FingerprintDialogView extends LinearLayout {
             stringBuilder.append("onScreenTurnedOn: ");
             stringBuilder.append(FingerprintDialogView.this.mLayout.getAlpha());
             Log.d("FingerprintDialogView", stringBuilder.toString());
-            //if (!FingerprintDialogView.this.mPm.isInteractive()) {
-            //    FingerprintDialogView.this.setDisplayAodMode(2);
-            //}
             FingerprintDialogView.this.mIsScreenOn = true;
             FingerprintDialogView.this.mIsScreenTurningOn = false;
             FingerprintDialogView.this.updateIconVisibility(false);
             FingerprintDialogView.this.updateFpDaemonStatus(5);
+            FingerprintDialogView.this.mIconNormal.setVisibility(0);
         }
-
-       // @Override
-       // public void onScreenTurningOn() {
-       //     super.onScreenTurningOn();
-       //     StringBuilder stringBuilder = new StringBuilder();
-       //     stringBuilder.append("onScreenTurningOn: interactive = ");
-        //    stringBuilder.append(FingerprintDialogView.this.mPm.isInteractive());
-        //    Log.d("FingerprintDialogView", stringBuilder.toString());
-        //    FingerprintDialogView.this.mIsScreenTurningOn = true;
-        //    if (!FingerprintDialogView.this.mPm.isInteractive()) {
-        //        FingerprintDialogView.this.setDisplayAodMode(2);
-        //    }
-       // }
 
         @Override
         public void onKeyguardVisibilityChanged(boolean showing) {
@@ -241,20 +235,6 @@ public class FingerprintDialogView extends LinearLayout {
                 FingerprintDialogView.this.updateIconVisibility(false);
             }
         }
-
-       // @Override
-       // public void onAuthenticateChanged(boolean authenticating, int type, int result, int reserved) {
-       //     if (!authenticating) {
-       ////         if (type == KeyguardViewMediator.AUTHENTICATE_FACEUNLOCK && !FingerprintDialogView.this.mIsKeyguardDone && FingerprintDialogView.this.mShowingKeyguard) {
-        //            FingerprintDialogView.this.mHandler.postDelayed(FingerprintDialogView.this.mUpdateIconRunnable, 700);
-        //        }
-        //        FingerprintDialogView.this.mScreenOffAuthenticating = false;
-       //     } else if (type == KeyguardViewMediator.AUTHENTICATE_FACEUNLOCK) {
-        //        FingerprintDialogView.this.mScreenOffAuthenticating = true;
-       ////         FingerprintDialogView.this.mHandler.removeCallbacks(FingerprintDialogView.this.mUpdateIconRunnable);
-       //         FingerprintDialogView.this.updateIconVisibility(true);
-       //     }
-       // }
 
         @Override
         public void onStrongAuthStateChanged(int userId) {
@@ -726,6 +706,7 @@ public class FingerprintDialogView extends LinearLayout {
     public void setDisplayPressMode(int mode) {
         boolean press = mode == 1;
         try {
+
             if (mShowingPressed == press) {
                 Log.d("FingerprintDialogView", "setDisplayPressMode: the same state");
                 return;
@@ -735,9 +716,7 @@ public class FingerprintDialogView extends LinearLayout {
             stringBuilder.append(mode);
             Log.d("FingerprintDialogView", stringBuilder.toString());
             mShowingPressed = press;
-            mIconNormal.setVisibility(4);
-            mIconDim.setVisibility(0);
-            mIconDim.updateIconDim();
+
             
             if (mPm.isInteractive() || mode != 1) {
                 mDaemon.setMode(9, mode);
@@ -1028,7 +1007,7 @@ public class FingerprintDialogView extends LinearLayout {
             this.mAodIndicationTextView.setVisibility(this.mDeviceInteractive ? 4 : 0);
             caseLog = "6";
         } else if (TextUtils.isEmpty(this.mOwnerString)) {
-            this.mIconNormal.setVisibility(4);
+            this.mIconNormal.setVisibility(0);
             this.mIconDim.setVisibility(4);
             caseLog = "7";
         } else if (this.mIconNormal.getVisibility() == 4) {
@@ -1148,7 +1127,7 @@ public class FingerprintDialogView extends LinearLayout {
         } else if (this.mPm.isInteractive() /*&& this.mStatusBarKeyguardViewManager != null && this.mStatusBarKeyguardViewManager.isOccluded() && !this.mStatusBarKeyguardViewManager.isBouncerShowing()*/) {
             Log.d("FingerprintDialogView", "don't enable HBM due to keyguard is occluded and device is interactive");
             return false;
-        } else if (!this.mPm.isInteractive() && this.mIsScreenOn && this.mShowingPressed) {
+        } else if (!this.mPm.isInteractive() /*&& this.mIsScreenOn && this.mShowingPressed*/) {
             Log.d("FingerprintDialogView", "force enable HBM in aod and fp is pressed");
             return true;
         } else if (!this.mPm.isInteractive()) {
