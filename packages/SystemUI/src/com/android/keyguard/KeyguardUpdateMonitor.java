@@ -210,6 +210,8 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
     private boolean mKeyguardOccluded;
     private boolean mIsKeyguardDone = true;
 
+    protected boolean mPulsing;
+
     // Device provisioning state
     private boolean mDeviceProvisioned;
 
@@ -1820,6 +1822,7 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
         callback.onRefreshCarrierInfo();
         callback.onClockVisibilityChanged();
         callback.onKeyguardVisibilityChangedRaw(mKeyguardIsVisible);
+        callback.onPulsing(mPulsing);
         for (Entry<Integer, SimData> data : mSimDatas.entrySet()) {
             final SimData state = data.getValue();
             callback.onSimStateChanged(state.subId, state.slotId, state.simState);
@@ -2134,5 +2137,16 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
 
     public void setFingerprintDialogView(FingerprintDialogView fpView) {
         this.mFingerprintDialogView = fpView;
+    }
+
+    public boolean setPulsing(boolean pulsing) {
+        mPulsing = pulsing;
+        for (int i = 0; i < mCallbacks.size(); i++) {
+            KeyguardUpdateMonitorCallback cb = mCallbacks.get(i).get();
+            if (cb != null) {
+                cb.onPulsing(mPulsing);
+            }
+        }
+        return mPulsing;
     }
 }
