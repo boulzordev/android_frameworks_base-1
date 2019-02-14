@@ -44,6 +44,7 @@ import com.android.keyguard.ViewMediatorCallback;
 import com.android.systemui.DejankUtils;
 import com.android.systemui.classifier.FalsingManager;
 import com.android.systemui.keyguard.DismissCallbackRegistry;
+import com.android.systemui.plugin.LSState;
 
 import java.io.PrintWriter;
 
@@ -137,7 +138,7 @@ public class KeyguardBouncer {
             // case we are already showing and the current security method changed.
             mKeyguardView.showPrimarySecurityScreen();
         }
-        if (mRoot.getVisibility() == View.VISIBLE || mShowingSoon) {
+        if (mRoot.getVisibility() == View.VISIBLE || mShowingSoon /*|| LSState.getInstance().getFingerprintUnlockControl().getMode() == 5*/) {
             return;
         }
 

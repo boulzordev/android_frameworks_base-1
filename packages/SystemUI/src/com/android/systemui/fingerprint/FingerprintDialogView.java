@@ -50,7 +50,9 @@ import com.android.systemui.keyguard.KeyguardViewMediator;
 import com.android.keyguard.KeyguardUpdateMonitorCallback;
 import com.android.internal.telephony.IccCardConstants.State;
 import com.android.systemui.Interpolators;
+import com.android.systemui.plugin.LSState;
 import com.android.systemui.R;
+import com.android.systemui.statusbar.phone.StatusBarKeyguardViewManager;
 import com.android.internal.widget.LockPatternUtils;
 
 import vendor.oneplus.hardware.display.V1_0.IOneplusDisplay;
@@ -129,6 +131,7 @@ public class FingerprintDialogView extends LinearLayout {
     private String WINDOW_FINGERPRINT_DIM_VIEW = "OPFingerprintVDDim";
     private String WINDOW_FINGERPRINT_HIGH_LIGHT_VIEW = "OPFingerprintVDpressed";
     private String WINDOW_FINGERPRINT_VIEW = "OPFingerprintView";
+    private StatusBarKeyguardViewManager mStatusBarKeyguardViewManager;
 
    KeyguardUpdateMonitorCallback mMonitorCallback = new KeyguardUpdateMonitorCallback() {
         @Override
@@ -178,10 +181,10 @@ public class FingerprintDialogView extends LinearLayout {
             stringBuilder.append("onStartedWakingUp, owner:");
             stringBuilder.append(FingerprintDialogView.this.getOwnerString());
             stringBuilder.append(", isShow:");
-            //stringBuilder.append(FingerprintDialogView.this.mStatusBarKeyguardViewManager.isShowing());
+            stringBuilder.append(FingerprintDialogView.this.mStatusBarKeyguardViewManager.isShowing());
             Log.d("FingerprintDialogView", stringBuilder.toString());
             FingerprintDialogView.this.mDeviceInteractive = true;
-            if (!(!"forceShow-keyguard".equals(FingerprintDialogView.this.getOwnerString()) /*|| FingerprintDialogView.this.mStatusBarKeyguardViewManager.isShowing()*/ || FingerprintDialogView.this.mDialogImpl == null)) {
+            if (!(!"forceShow-keyguard".equals(FingerprintDialogView.this.getOwnerString()) || FingerprintDialogView.this.mStatusBarKeyguardViewManager.isShowing() || FingerprintDialogView.this.mDialogImpl == null)) {
                 FingerprintDialogView.this.mDialogImpl.hideFingerprintDialog();
             }
             if (FingerprintDialogView.this.mIconDisable != null) {
@@ -219,11 +222,11 @@ public class FingerprintDialogView extends LinearLayout {
                 //stringBuilder2.append("live wallpaper: ");
                 //stringBuilder2.append(LSState.getInstance().getPhoneStatusBar().isShowingWallpaper());
                 //Log.d("FingerprintDialogView", stringBuilder2.toString());
-               // if (LSState.getInstance().getPhoneStatusBar().isShowingWallpaper()) {
-                //    FingerprintDialogView.this.setDisplayHideAod(0);
-               // } else {
+                if (LSState.getInstance().getPhoneStatusBar().isShowingWallpaper()) {
+                    FingerprintDialogView.this.setDisplayHideAod(0);
+                } else {
                     FingerprintDialogView.this.setDisplayHideAod(1);
-               // }
+                }
                 FingerprintDialogView.this.updateFpDaemonStatus(5);
             }
             FingerprintDialogView.this.updateIconVisibility(false);
@@ -231,8 +234,8 @@ public class FingerprintDialogView extends LinearLayout {
 
         @Override
         public void onKeyguardBouncerChanged(boolean isBouncer) {
-            if (true /*FingerprintDialogView.this.mStatusBarKeyguardViewManager.isShowing()*/) {
-                FingerprintDialogView.this.updateIconVisibility(false);
+            if (FingerprintDialogView.this.mStatusBarKeyguardViewManager.isShowing()) {
+                FingerprintDialogView.this.updateIconVisibility(isBouncer);
             }
         }
 
@@ -331,7 +334,7 @@ public class FingerprintDialogView extends LinearLayout {
         mSurfaceFlinger = ServiceManager.getService("SurfaceFlinger");
         mUpdateMonitor = KeyguardUpdateMonitor.getInstance(this.mContext);
         addView(mLayout);
-
+        mStatusBarKeyguardViewManager = LSState.getInstance().getStatusBarKeyguardViewManager();
         mDialog = mLayout.findViewById(R.id.dialog);
 
         mErrorText = mLayout.findViewById(R.id.error);
@@ -484,7 +487,7 @@ public class FingerprintDialogView extends LinearLayout {
         });
     }
 
-    public void startDismiss() {
+    public void startDismiss(boolean authenticatedSuccess) {
         mAnimatingAway = true;
 
         final Runnable endActionRunnable = new Runnable() {
@@ -568,6 +571,34 @@ public class FingerprintDialogView extends LinearLayout {
         showTemporaryMessage(error);
         mHandler.sendMessageDelayed(mHandler.obtainMessage(FingerprintDialogImpl.MSG_HIDE_DIALOG,
                 false /* userCanceled */), BiometricPrompt.HIDE_DIALOG_DELAY);
+    }
+
+    public void notifyKeyguardDone() {
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append("notifyKeyguardDone, ");
+        stringBuilder.append(this.mIsKeyguardDone);
+        Log.d("FingerprintDialogView", stringBuilder.toString());
+        if (!this.mIsKeyguardDone) {
+            this.mIsKeyguardDone = true;
+            updateFpDaemonStatus(6);
+            handleFpResultEvent();
+            updateIconVisibility(true);
+            this.mDialogImpl.hideFingerprintDialog();
+        }
+    }
+
+    public void notifyFingerprintAuthenticated() {
+        if (!this.mIsKeyguardDone) {
+            this.mIsKeyguardDone = true;
+            //stopAnimation();
+            if (!this.mPm.isInteractive()) {
+                setDisplayAodMode(0);
+            }
+            updateFpDaemonStatus(6);
+            handleFpResultEvent();
+            updateIconVisibility(true);
+            this.mDialogImpl.hideFingerprintDialog();
+        }
     }
 
     private void updateFingerprintIcon(int newState) {
@@ -790,7 +821,7 @@ public class FingerprintDialogView extends LinearLayout {
             if (FingerprintDialogView.this.mShowingPressed) {
                 FingerprintDialogView.this.setDisplayPressMode(0);
                 //FingerprintDialogView.this.playAnimation(FingerprintAnimationCtrl.TYPE_ANIMATION_TOUCH_UP);
-                //LSState.getInstance().getPhoneStatusBar().onFpPressedTimeOut();
+                LSState.getInstance().getPhoneStatusBar().onFpPressedTimeOut();
             }
         }
     };
@@ -897,7 +928,7 @@ public class FingerprintDialogView extends LinearLayout {
         if (this.mUpdateMonitor == null) {
             this.mUpdateMonitor = KeyguardUpdateMonitor.getInstance(this.mContext);
         }
-        if (this.mIconNormal == null || this.mIconDisable == null /*|| this.mStatusBarKeyguardViewManager == null*/) {
+        if (this.mIconNormal == null || this.mIconDisable == null || this.mStatusBarKeyguardViewManager == null) {
             boolean z2 = false;
             String str = "FingerprintDialogView";
             StringBuilder stringBuilder = new StringBuilder();
@@ -912,16 +943,16 @@ public class FingerprintDialogView extends LinearLayout {
             return;
         }
         boolean isUnlockwithFingerPrintAllowed = this.mUpdateMonitor.isUnlockingWithFingerprintAllowed();
-        boolean isOccluded = false; //this.mStatusBarKeyguardViewManager.isOccluded();
-        boolean isBouncer = false; //this.mStatusBarKeyguardViewManager.isBouncerShowing();
+        boolean isOccluded = this.mStatusBarKeyguardViewManager.isOccluded();
+        boolean isBouncer = this.mStatusBarKeyguardViewManager.isBouncerShowing();
         boolean isImeShow = false; //this.mUpdateMonitor.isImeShow();
-        boolean isSimPin = false; //this.mUpdateMonitor.isSimPinSecure();
+        boolean isSimPin = this.mUpdateMonitor.isSimPinSecure();
         boolean isDreaming = this.mUpdateMonitor.isDreaming();
         boolean isQSExpanded = false; //this.mUpdateMonitor.isQSExpanded();
         boolean isPreventModeActivte = false; //this.mUpdateMonitor.isPreventModeActivte();
         boolean faceRecognizing = false; //this.mUpdateMonitor.isFacelockRecognizing();
         boolean isLaunchingCamera = false; //this.mUpdateMonitor.isLaunchingCamera();
-        boolean isShowing = false; //this.mStatusBarKeyguardViewManager.isShowing();
+        boolean isShowing = this.mStatusBarKeyguardViewManager.isShowing();
         StringBuilder stringBuilder2 = new StringBuilder();
         stringBuilder2.append("updateIconVisibility: fp client = ");
         stringBuilder2.append(this.mOwnerString);
@@ -1006,10 +1037,10 @@ public class FingerprintDialogView extends LinearLayout {
             this.mIconDisable.setVisibility(0);
             this.mAodIndicationTextView.setVisibility(this.mDeviceInteractive ? 4 : 0);
             caseLog = "6";
-        } else if (TextUtils.isEmpty(this.mOwnerString)) {
-            this.mIconNormal.setVisibility(0);
-            this.mIconDim.setVisibility(4);
-            caseLog = "7";
+        //} else if (TextUtils.isEmpty(this.mOwnerString)) {
+        //    this.mIconNormal.setVisibility(0);
+        //    this.mIconDim.setVisibility(4);
+        //    caseLog = "7";
         } else if (this.mIconNormal.getVisibility() == 4) {
             if (!isKeyguard(this.mOwnerString)) {
                 this.mIconNormal.setVisibility(0);
@@ -1121,10 +1152,10 @@ public class FingerprintDialogView extends LinearLayout {
         } else if (this.mUpdateMonitor != null && this.mUpdateMonitor.isGoingToSleep()) {
             Log.d("FingerprintDialogView", "don't enable HBM due to going to sleep");
             return false;
-        } else if (/*LSState.getInstance().getFingerprintUnlockControl().isWakeAndUnlock() ||*/ this.mIsKeyguardDone) {
+        } else if (LSState.getInstance().getFingerprintUnlockControl().isWakeAndUnlock() || this.mIsKeyguardDone) {
             Log.d("FingerprintDialogView", "don't enable HBM due to duraing fp wake and unlock");
             return false;
-        } else if (this.mPm.isInteractive() /*&& this.mStatusBarKeyguardViewManager != null && this.mStatusBarKeyguardViewManager.isOccluded() && !this.mStatusBarKeyguardViewManager.isBouncerShowing()*/) {
+        } else if (this.mPm.isInteractive() && this.mStatusBarKeyguardViewManager != null && this.mStatusBarKeyguardViewManager.isOccluded() && !this.mStatusBarKeyguardViewManager.isBouncerShowing()) {
             Log.d("FingerprintDialogView", "don't enable HBM due to keyguard is occluded and device is interactive");
             return false;
         } else if (!this.mPm.isInteractive() /*&& this.mIsScreenOn && this.mShowingPressed*/) {

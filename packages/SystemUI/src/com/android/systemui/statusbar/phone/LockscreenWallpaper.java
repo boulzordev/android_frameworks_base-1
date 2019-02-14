@@ -40,6 +40,7 @@ import android.app.WallpaperColors;
 import android.util.Log;
 
 import com.android.keyguard.KeyguardUpdateMonitor;
+import com.android.systemui.plugin.LSState;
 
 import libcore.io.IoUtils;
 
@@ -197,6 +198,7 @@ public class LockscreenWallpaper extends IWallpaperManagerCallback.Stub implemen
                             true /* metaDataChanged */, true /* allowEnterAnimation */);
                 }
                 mLoader = null;
+                LSState.getInstance().onWallpaperChange(LockscreenWallpaper.this.getBitmap());
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }

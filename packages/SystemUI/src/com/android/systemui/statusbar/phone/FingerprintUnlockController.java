@@ -110,6 +110,7 @@ public class FingerprintUnlockController extends KeyguardUpdateMonitorCallback {
     private int mPendingAuthenticatedUserId = -1;
     private boolean mPendingShowBouncer;
     private boolean mHasScreenTurnedOnSinceAuthenticating;
+    private boolean mApplySpeedUpPolicy = false;
 
     public FingerprintUnlockController(Context context,
             DozeScrimController dozeScrimController,
@@ -354,6 +355,8 @@ public class FingerprintUnlockController extends KeyguardUpdateMonitorCallback {
         return MODE_NONE;
     }
 
+
+
     @Override
     public void onFingerprintAuthFailed() {
         cleanup();
@@ -383,13 +386,30 @@ public class FingerprintUnlockController extends KeyguardUpdateMonitorCallback {
         resetMode();
     }
 
-    private void resetMode() {
+    public boolean shouldApplySpeedUpPolicy() {
+        return !this.mStatusBarWindowManager.isShowingLiveWallpaper(true);
+    }
+
+    private void changePanelVisibilityByAlpha(int alpha, boolean reset) {
+        if (reset) {
+            this.mKeyguardViewMediator.changePanelAlpha(alpha, KeyguardViewMediator.AUTHENTICATE_IGNORE);
+        } else {
+            this.mKeyguardViewMediator.changePanelAlpha(alpha, KeyguardViewMediator.AUTHENTICATE_FINGERPRINT);
+        }
+    }
+
+    public void resetSpeedUpPolicy() {
+        this.mApplySpeedUpPolicy = false;
+    }
+
+    public void resetMode() {
         mMode = MODE_NONE;
         mStatusBarWindowManager.setForceDozeBrightness(false);
         if (mStatusBar.getNavigationBarView() != null) {
             mStatusBar.getNavigationBarView().setWakeAndUnlocking(false);
         }
         mStatusBar.notifyFpAuthModeChanged();
+        changePanelVisibilityByAlpha(1, true);
     }
 
     private final WakefulnessLifecycle.Observer mWakefulnessObserver =

@@ -39,6 +39,7 @@ import android.view.WindowManager.LayoutParams;
 import com.android.keyguard.R;
 import com.android.systemui.Dumpable;
 import com.android.systemui.keyguard.KeyguardViewMediator;
+import com.android.systemui.plugin.LSState;
 import com.android.systemui.statusbar.RemoteInputController;
 import com.android.systemui.statusbar.StatusBarState;
 
@@ -199,6 +200,9 @@ public class StatusBarWindowManager implements RemoteInputController.Callback, D
             mLpChanged.height = ViewGroup.LayoutParams.MATCH_PARENT;
         } else {
             mLpChanged.height = mBarHeight;
+        }
+        if (LSState.getInstance().getPhoneStatusBar() != null) {
+            LSState.getInstance().getPhoneStatusBar().notifyBarHeightChange(this.mLpChanged.height);
         }
     }
 
@@ -383,6 +387,11 @@ public class StatusBarWindowManager implements RemoteInputController.Callback, D
         apply(mCurrentState);
     }
 
+    public void setLockscreenWallpaper(boolean hasLockscreenWallpaper) {
+        mCurrentState.hasWallpaper = hasLockscreenWallpaper;
+        apply(this.mCurrentState);
+    }
+
     /**
      * Force the window to be collapsed, even if it should theoretically be expanded.
      * Used for when a heads-up comes in but we still need to wait for the touchable regions to
@@ -441,6 +450,14 @@ public class StatusBarWindowManager implements RemoteInputController.Callback, D
         return !mCurrentState.backdropShowing;
     }
 
+    public boolean isShowingLiveWallpaper(boolean isFingerprint) {
+        return (isFingerprint || mCurrentState.hasWallpaper) ? false : true;
+    }
+
+    public boolean isKeyguardFadingAway() {
+        return mCurrentState.keyguardFadingAway;
+    }
+
     private static class State {
         boolean keyguardShowing;
         boolean keyguardOccluded;
@@ -448,6 +465,7 @@ public class StatusBarWindowManager implements RemoteInputController.Callback, D
         boolean panelVisible;
         boolean panelExpanded;
         boolean statusBarFocusable;
+        boolean hasWallpaper;
         boolean bouncerShowing;
         boolean keyguardFadingAway;
         boolean qsExpanded;

@@ -67,6 +67,7 @@ import com.android.systemui.R;
 import com.android.systemui.classifier.FalsingManager;
 import com.android.systemui.fragments.FragmentHostManager;
 import com.android.systemui.fragments.FragmentHostManager.FragmentListener;
+import com.android.systemui.plugin.LSState;
 import com.android.systemui.plugins.qs.QS;
 import com.android.systemui.statusbar.ExpandableNotificationRow;
 import com.android.systemui.statusbar.ExpandableView;
@@ -2684,6 +2685,29 @@ public class NotificationPanelView extends PanelView implements
     public void setAlpha(float alpha) {
         super.setAlpha(alpha);
         updateFullyVisibleState(false /* forceNotFullyVisible */);
+    }
+
+    public void setUnlockAlpha(float alpha) {
+        int i = 0;
+        boolean visible = alpha > 0.0f;
+        FingerprintUnlockController fingerprintUnlockController = LSState.getInstance().getFingerprintUnlockControl();
+        if (fingerprintUnlockController.shouldApplySpeedUpPolicy()) {
+            this.mKeyguardStatusView.setVisibility(visible ? 0 : 4);
+            this.mNotificationStackScroller.setAlpha(alpha);
+            if (this.mKeyguardBottomArea.getVisibility() != 8) {
+                KeyguardBottomAreaView keyguardBottomAreaView = this.mKeyguardBottomArea;
+                if (!visible) {
+                    i = 4;
+                }
+                keyguardBottomAreaView.setVisibility(i);
+            }
+            if (visible) {
+                fingerprintUnlockController.resetSpeedUpPolicy();
+                return;
+            }
+            return;
+        }
+        setAlpha(alpha);
     }
 
     /**

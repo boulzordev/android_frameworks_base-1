@@ -150,6 +150,7 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, OnCo
     private boolean mWallpaperSupportsAmbientMode;
     private boolean mScreenOn;
     private float mNotificationDensity;
+    private boolean mForceHideScrims;
 
     // Scrim blanking callbacks
     private Runnable mPendingFrameCallback;
@@ -301,6 +302,16 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, OnCo
 
     public ScrimState getState() {
         return mState;
+    }
+
+    public void forceHideScrims(boolean hide, boolean animated) {
+        this.mForceHideScrims = hide;
+        this.mAnimateChange = animated;
+        scheduleUpdate();
+    }
+
+    public void resetForceHide() {
+        this.mForceHideScrims = false;
     }
 
     protected void setScrimBehindValues(float scrimBehindAlphaKeyguard) {
@@ -506,8 +517,14 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, OnCo
             mCurrentBehindAlpha = 1;
         }
 
-        setScrimInFrontAlpha(mCurrentInFrontAlpha);
-        setScrimBehindAlpha(mCurrentBehindAlpha);
+        if (this.mForceHideScrims) {
+            this.mAnimateChange = false;
+            setScrimInFrontAlpha(0.0f);
+            setScrimBehindAlpha(0.0f);
+        } else {
+            setScrimInFrontAlpha(this.mCurrentInFrontAlpha);
+            setScrimBehindAlpha(this.mCurrentBehindAlpha);
+        }
 
         dispatchScrimsVisible();
     }

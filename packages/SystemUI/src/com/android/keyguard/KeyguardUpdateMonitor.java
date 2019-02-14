@@ -208,6 +208,7 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
     private boolean mHasLockscreenWallpaper;
     private boolean mAssistantVisible;
     private boolean mKeyguardOccluded;
+    private boolean mIsKeyguardDone = true;
 
     // Device provisioning state
     private boolean mDeviceProvisioned;
@@ -235,6 +236,7 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
     private boolean mIsDreaming;
     private final DevicePolicyManager mDevicePolicyManager;
     private boolean mLogoutEnabled;
+    private boolean mFingerprintAlreadyAuthenticated;
 
     /**
      * Short delay before restarting fingerprint authentication after a successful try
@@ -1138,7 +1140,14 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
             }
         }
         mGoingToSleep = true;
+        if (/*OPUtils.isCustomFingerprint() &&*/ isFingerprintEnrolled(sCurrentUser)) {
+            //showFPDialogWhenNoWindow();
+        }
         updateFingerprintListeningState();
+    }
+
+    public boolean isFingerprintEnrolled(int userId) {
+        return this.mFpm != null && this.mFpm.isHardwareDetected() && this.mFpm.getEnrolledFingerprints(userId).size() > 0;
     }
 
     protected void handleFinishedGoingToSleep(int arg1) {
@@ -1698,6 +1707,25 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
             }
         }
         updateFingerprintListeningState();
+    }
+
+    public boolean isFingerprintAlreadyAuthenticated() {
+        return this.mFingerprintAlreadyAuthenticated;
+    }
+
+    public void resetFingerprintAlreadyAuthenticated() {
+        this.mFingerprintAlreadyAuthenticated = false;
+    }
+
+    public void notifyKeyguardDone(boolean isKeyguardDone) {
+        this.mIsKeyguardDone = isKeyguardDone;
+        if (this.mFingerprintDialogView != null && this.mIsKeyguardDone) {
+            this.mFingerprintDialogView.notifyKeyguardDone();
+        }
+    }
+
+    public boolean isKeyguardDone() {
+        return this.mIsKeyguardDone;
     }
 
     /**

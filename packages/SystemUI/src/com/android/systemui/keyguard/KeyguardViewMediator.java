@@ -81,6 +81,7 @@ import com.android.systemui.SystemUI;
 import com.android.systemui.SystemUIFactory;
 import com.android.systemui.UiOffloadThread;
 import com.android.systemui.classifier.FalsingManager;
+import com.android.systemui.plugin.LSState;
 import com.android.systemui.statusbar.phone.FingerprintUnlockController;
 import com.android.systemui.statusbar.phone.NotificationPanelView;
 import com.android.systemui.statusbar.phone.StatusBar;
@@ -137,7 +138,9 @@ public class KeyguardViewMediator extends SystemUI {
 
     private static final boolean DEBUG = KeyguardConstants.DEBUG;
     private static final boolean DEBUG_SIM_STATES = KeyguardConstants.DEBUG_SIM_STATES;
-
+    public static int AUTHENTICATE_FACEUNLOCK = 2;
+    public static int AUTHENTICATE_FINGERPRINT = 1;
+    public static int AUTHENTICATE_IGNORE = 0;
     private final static String TAG = "KeyguardViewMediator";
 
     private static final String DELAYED_KEYGUARD_ACTION =
@@ -204,6 +207,7 @@ public class KeyguardViewMediator extends SystemUI {
     private boolean mBootCompleted;
     private boolean mBootSendUserPresent;
     private boolean mShuttingDown;
+    private StatusBar mStatusBar;
 
     /** High level access to the power manager for WakeLocks */
     private PowerManager mPM;
@@ -307,6 +311,7 @@ public class KeyguardViewMediator extends SystemUI {
     private int mUnlockSoundId;
     private int mTrustedSoundId;
     private int mLockSoundStreamId;
+    private int mAuthenticatingType = AUTHENTICATE_IGNORE;
 
     /**
      * The animation used for hiding keyguard. This is used to fetch the animation timings if
@@ -355,6 +360,7 @@ public class KeyguardViewMediator extends SystemUI {
     private IKeyguardDrawnCallback mDrawnCallback;
     private boolean mLockWhenSimRemoved;
     private CharSequence mCustomMessage;
+    private int mLastAlpha = 1;
 
     KeyguardUpdateMonitorCallback mUpdateCallback = new KeyguardUpdateMonitorCallback() {
 
@@ -1651,6 +1657,10 @@ public class KeyguardViewMediator extends SystemUI {
 
         if (mGoingToSleep) {
             Log.i(TAG, "Device is going to sleep, aborting keyguardDone");
+            FingerprintUnlockController fp = LSState.getInstance().getFingerprintUnlockControl();
+            if (!(fp == null || fp.getMode() == 1 || fp.getMode() == 6 || fp.getMode() == 5)) {
+                fp.resetMode();
+            }
             return;
         }
         if (mExitSecureCallback != null) {
@@ -1712,6 +1722,39 @@ public class KeyguardViewMediator extends SystemUI {
             }
         }
         Trace.endSection();
+    }
+
+    public boolean isScreenOffAuthenticating() {
+        return this.mAuthenticatingType != 0;
+    }
+
+    public void changePanelAlpha(int alpha, int type) {
+        if (alpha > 0 && this.mStatusBar.isShowingWallpaper() && !isScreenOffAuthenticating()) {
+            Log.d("KeyguardViewMediator", "not set backdrop alpha");
+        } else if (type == AUTHENTICATE_IGNORE || !isScreenOffAuthenticating() || type == this.mAuthenticatingType) {
+            StringBuilder stringBuilder = new StringBuilder();
+            stringBuilder.append("set panel alpha to ");
+            stringBuilder.append(alpha);
+            stringBuilder.append(", type:");
+            stringBuilder.append(type);
+            stringBuilder.append(", currentType:");
+            stringBuilder.append(this.mAuthenticatingType);
+            Log.d("KeyguardViewMediator", stringBuilder.toString());
+            this.mStatusBar.setPanelViewAlpha((float) alpha, false, this.mAuthenticatingType);
+            this.mStatusBar.setWallpaperAlpha((float) alpha);
+            this.mLastAlpha = alpha;
+        } else {
+            Log.d("KeyguardViewMediator", "return set alpha");
+        }
+    }
+
+    public void notifyBarHeightChange(int barHeight) {
+        if (this.mLastAlpha == 0) {
+            Log.d("KeyguardViewMediator", "recover alpha");
+            this.mStatusBar.setWallpaperAlpha(1.0f);
+            this.mStatusBar.setPanelViewAlpha(1.0f, false, -1);
+            this.mLastAlpha = 1;
+        }
     }
 
     private void playSounds(boolean locked) {
@@ -1802,7 +1845,7 @@ public class KeyguardViewMediator extends SystemUI {
 
                 int flags = 0;
                 if (mStatusBarKeyguardViewManager.shouldDisableWindowAnimationsForUnlock()
-                        || (mWakeAndUnlocking && !mPulsing)) {
+                        || (mWakeAndUnlocking && !mPulsing) || LSState.getInstance().getFingerprintUnlockControl().isFingerprintUnlock()) {
                     flags |= WindowManagerPolicyConstants
                             .KEYGUARD_GOING_AWAY_FLAG_NO_WINDOW_ANIMATIONS;
                 }
@@ -2058,6 +2101,7 @@ public class KeyguardViewMediator extends SystemUI {
             FingerprintUnlockController fingerprintUnlockController) {
         mStatusBarKeyguardViewManager.registerStatusBar(statusBar, container, panelView,
                 fingerprintUnlockController, mDismissCallbackRegistry);
+        mStatusBar = statusBar;
         return mStatusBarKeyguardViewManager;
     }
 

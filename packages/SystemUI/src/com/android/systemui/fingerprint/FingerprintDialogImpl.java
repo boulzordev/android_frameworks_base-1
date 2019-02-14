@@ -37,6 +37,7 @@ import com.android.internal.os.SomeArgs;
 import com.android.systemui.SystemUI;
 import com.android.systemui.R;
 import com.android.keyguard.KeyguardUpdateMonitor;
+import com.android.systemui.plugin.LSState;
 import com.android.systemui.statusbar.CommandQueue;
 import com.android.systemui.statusbar.CommandQueue.Callbacks;
 
@@ -67,6 +68,7 @@ public class FingerprintDialogImpl extends SystemUI implements CommandQueue.Call
     private int mTransparentIconSize;
     private boolean mTransparentIconShowing = false;
     private String mAuthenticatedPkg = null;
+    private boolean mAuthenticatedSuccess;
     
     private Handler mHandler = new Handler() {
         @Override
@@ -240,10 +242,16 @@ public class FingerprintDialogImpl extends SystemUI implements CommandQueue.Call
                 this.mWindowManager.addView(this.mTransparentIconView, getIconLayoutParams());
             }
         mDialogShowing = true;
+        mAuthenticatedSuccess = false;
     }
 
     private void handleFingerprintAuthenticated() {
         if (DEBUG) Log.d(TAG, "handleFingerprintAuthenticated");
+        
+        this.mDialogView.handleFpResultEvent();
+        this.mDialogView.updateFpDaemonStatus(6);
+        this.mAuthenticatedSuccess = true;
+        
         mDialogView.announceForAccessibility(
                 mContext.getResources().getText(
                         com.android.internal.R.string.fingerprint_authenticated));
@@ -252,6 +260,9 @@ public class FingerprintDialogImpl extends SystemUI implements CommandQueue.Call
 
     private void handleFingerprintHelp(String message) {
         if (DEBUG) Log.d(TAG, "handleFingerprintHelp: " + message);
+        if (this.mFpSensorPressing) {
+            this.mDialogView.handleFpResultEvent();
+        }
         mDialogView.showHelpMessage(message);
     }
 
@@ -272,6 +283,16 @@ public class FingerprintDialogImpl extends SystemUI implements CommandQueue.Call
             Log.w(TAG, "Dialog already dismissed, userCanceled: " + userCanceled);
             return;
         }
+
+            mDialogView.handleFpResultEvent();
+            if (true /*!this.mDialogView.isDefault()*/) {
+                KeyguardUpdateMonitor updateMonitor = KeyguardUpdateMonitor.getInstance(this.mContext);
+                if (!(updateMonitor.isKeyguardDone() || updateMonitor.isFingerprintAlreadyAuthenticated() || !updateMonitor.isUnlockWithFingerprintPossible(KeyguardUpdateMonitor.getCurrentUser()) || updateMonitor.isSwitchingUser() || ((LSState.getInstance().getStatusBarKeyguardViewManager().isOccluded() || LSState.getInstance().getPhoneStatusBar().isInLaunchTransition()) && !LSState.getInstance().getPhoneStatusBar().isBouncerShowing()))) {
+                    Log.d("FingerprintDialogImpl", "handleHideDialog: don't hide window since keyguard is showing");
+                    return;
+                }
+            }
+
         if (userCanceled) {
             try {
                 mReceiver.onDialogDismissed(BiometricPrompt.DISMISSED_REASON_USER_CANCEL);
@@ -281,7 +302,13 @@ public class FingerprintDialogImpl extends SystemUI implements CommandQueue.Call
         }
         mReceiver = null;
         mDialogShowing = false;
-        mDialogView.startDismiss();
+        mDialogView.startDismiss(mAuthenticatedSuccess);
+            if (!(!this.mTransparentIconShowing || this.mOnViewPressing || this.mFpSensorPressing)) {
+                updateTransparentIconLayoutParams(false);
+                this.mTransparentIconShowing = false;
+                this.mWindowManager.removeViewImmediate(this.mTransparentIconView);
+                Log.d("FingerprintDialogImpl", "remove transparent Icon");
+            }
     }
 
     private void handleButtonNegative() {

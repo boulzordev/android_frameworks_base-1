@@ -172,6 +172,7 @@ import com.android.systemui.fragments.FragmentHostManager;
 import com.android.systemui.keyguard.KeyguardViewMediator;
 import com.android.systemui.keyguard.ScreenLifecycle;
 import com.android.systemui.keyguard.WakefulnessLifecycle;
+import com.android.systemui.plugin.LSState;
 import com.android.systemui.plugins.ActivityStarter;
 import com.android.systemui.plugins.qs.QS;
 import com.android.systemui.plugins.statusbar.NotificationSwipeActionHelper.SnoozeOption;
@@ -389,6 +390,7 @@ public class StatusBar extends SystemUI implements DemoMode,
     private DozeServiceHost mDozeServiceHost = new DozeServiceHost();
     private boolean mWakeUpComingFromTouch;
     private PointF mWakeUpTouchLocation;
+    private LSState mLSState;
 
     private final Object mQueueLock = new Object();
 
@@ -876,7 +878,8 @@ public class StatusBar extends SystemUI implements DemoMode,
         inflateStatusBarWindow(context);
         mStatusBarWindow.setService(this);
         mStatusBarWindow.setOnTouchListener(getStatusBarWindowTouchListener());
-
+        mLSState = LSState.getInstance();
+        mLSState.init(mContext, mStatusBarWindow, this);
         // TODO: Deal with the ugliness that comes from having some of the statusbar broken out
         // into fragments, but the rest here, it leaves some awkward lifecycle and whatnot.
         mNotificationPanel = mStatusBarWindow.findViewById(R.id.notification_panel);
@@ -1400,6 +1403,58 @@ public class StatusBar extends SystemUI implements DemoMode,
         }
     }
 
+    public void setPanelViewAlpha(float alpha, boolean preventMode, int authType) {
+        if (preventMode) {
+            if (alpha <= 0.0f && preventMode && this.mBouncerShowing) {
+                this.mStatusBarKeyguardViewManager.reset(true);
+            }
+            if (this.mNotificationPanel != null) {
+                 if (alpha >= 1.0f) {
+                    this.mNotificationPanel.setAlpha(alpha);
+                    this.mNotificationPanel.setUnlockAlpha(alpha);
+                } else {
+                    this.mNotificationPanel.setUnlockAlpha(alpha);
+                }
+                return;
+            }
+            return;
+        }
+        Log.d("StatusBar", "not set alpha when prevent");
+    }
+
+    public boolean isShowingWallpaper() {
+        if (this.mStatusBarWindowManager != null) {
+            return this.mStatusBarWindowManager.isShowingWallpaper();
+        }
+        return false;
+    }
+
+    public void setWallpaperAlpha(float alpha) {
+        if (this.mScrimController != null) {
+            if (alpha == 0.0f) {
+                this.mScrimController.forceHideScrims(true, false);
+            } else {
+                this.mScrimController.forceHideScrims(false, false);
+            }
+        }
+        if (alpha == 0.0f) {
+            this.mBackdrop.animate().cancel();
+            alpha = 0.002f;
+        }
+        this.mBackdrop.setAlpha(alpha);
+    }
+
+    public void notifyBarHeightChange(int barHeight) {
+        if (!(this.mKeyguardViewMediator == null || this.mNotificationPanel == null)) {
+            if (this.mNotificationPanel.getAlpha() < 1.0f && barHeight != -1) {
+                this.mKeyguardViewMediator.notifyBarHeightChange(barHeight);
+            } else if (!(barHeight == -1 || this.mScrimController == null)) {
+                this.mScrimController.resetForceHide();
+            }
+        }
+        //this.mLastBarHeight = barHeight;
+    }
+
     protected void startKeyguard() {
         Trace.beginSection("StatusBar#startKeyguard");
         KeyguardViewMediator keyguardViewMediator = getComponent(KeyguardViewMediator.class);
@@ -1412,7 +1467,8 @@ public class StatusBar extends SystemUI implements DemoMode,
                 .setStatusBarKeyguardViewManager(mStatusBarKeyguardViewManager);
         mFingerprintUnlockController.setStatusBarKeyguardViewManager(mStatusBarKeyguardViewManager);
         mRemoteInputManager.getController().addCallback(mStatusBarKeyguardViewManager);
-
+        LSState.getInstance().setFingerprintUnlockControl(this.mFingerprintUnlockController);
+        LSState.getInstance().setStatusBarKeyguardViewManager(this.mStatusBarKeyguardViewManager);
         mKeyguardViewMediatorCallback = keyguardViewMediator.getViewMediatorCallback();
         mLightBarController.setFingerprintUnlockController(mFingerprintUnlockController);
         Dependency.get(KeyguardDismissUtil.class).setDismissHandler(this::executeWhenUnlocked);
@@ -4252,6 +4308,11 @@ public class StatusBar extends SystemUI implements DemoMode,
         }
     }
 
+    public void onFpPressedTimeOut() {
+        //mKeyguardIndicationController.showTransientIndication("fix me"/*mContext.getResources().getString(17039925)*/, Utils.getColorError(mContext));
+        mKeyguardIndicationController.hideTransientIndicationDelayed(1000);
+    }
+
     @Override
     public int getMaxNotificationsWhileLocked(boolean recompute) {
         if (recompute) {
@@ -5701,6 +5762,14 @@ public class StatusBar extends SystemUI implements DemoMode,
     public void showAssistDisclosure() {
         if (mAssistManager != null) {
             mAssistManager.showDisclosure();
+        }
+    }
+
+    public void onWallpaperChange(Bitmap bitmap) {
+        if (mStatusBarWindowManager != null) {
+            mStatusBarWindowManager.setLockscreenWallpaper(bitmap != null);
+        } else {
+            Log.v("StatusBar", "mStatusBarWindowManager is null");
         }
     }
 
