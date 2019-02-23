@@ -91,6 +91,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import vendor.oneplus.fingerprint.extension.V1_0.IVendorFingerprintExtensions;
+
 /**
  * A service to manage multiple clients that want to access the fingerprint HAL API.
  * The service is responsible for maintaining a list of clients and dispatching all
@@ -149,6 +151,8 @@ public class FingerprintService extends SystemService implements IHwBinder.Death
 
     private IBinder mToken = new Binder(); // used for internal FingerprintService enumeration
     private ArrayList<UserFingerprint> mUnknownFingerprints = new ArrayList<>(); // hw fingerprints
+    
+    private IVendorFingerprintExtensions mExtDaemon;
 
     private class UserFingerprint {
         Fingerprint f;
@@ -309,6 +313,63 @@ public class FingerprintService extends SystemService implements IHwBinder.Death
         return mDaemon;
     }
 
+    public synchronized IVendorFingerprintExtensions getExtFingerprintDaemon() {
+        if (mExtDaemon == null) {
+            Slog.v(TAG, "mExtDaemon was null, reconnect to fingerprint");
+            try {
+                mExtDaemon = IVendorFingerprintExtensions.getService();
+            } catch (java.util.NoSuchElementException e) {
+            } catch (RemoteException e2) {
+                Slog.e(TAG, "Failed to get fingerpritn ext interface", e2);
+            }
+            if (mExtDaemon == null) {
+                Slog.w(TAG, "fingerpritn ext HIDL not available");
+                return null;
+            }
+            mExtDaemon.asBinder().linkToDeath(this, 0);
+        }
+        return mExtDaemon;
+    }
+
+   public int updateStatus(int status, String pkgName) {
+        Slog.d(TAG, "updateStatus : " + pkgName + " - status : " + status);
+        if (pkgName.equals("EnrollClient")) {
+            if (status == 9) {
+                ((EnrollClient) mCurrentClient).suspend();
+            } else if (status == 8) {
+               ((EnrollClient) mCurrentClient).resume();
+            } else if (status == 10) {
+                status = 8;
+            }
+        }
+        IVendorFingerprintExtensions daemon = getExtFingerprintDaemon();
+        if (daemon != null) {
+            try {
+                String str = TAG;
+                StringBuilder stringBuilder = new StringBuilder();
+                stringBuilder.append("updateStatus , ");
+                stringBuilder.append(status);
+                Slog.d(str, stringBuilder.toString());
+                return daemon.updateStatus(status);
+            } catch (RemoteException e) {
+                Slog.e(TAG, "updateStatus failed", e);
+            }
+        }
+        return 0;
+    }
+
+    public int getStatus() {
+        IVendorFingerprintExtensions daemon = getExtFingerprintDaemon();
+        if (daemon != null) {
+            try {
+                return daemon.getStatus();
+            } catch (RemoteException e) {
+                Slog.e(TAG, "getStatus failed", e);
+            }
+        }
+        return 0;
+    }
+
     /** Populates existing authenticator ids. To be used only during the start of the service. */
     private void loadAuthenticatorIds() {
         // This operation can be expensive, so keep track of the elapsed time. Might need to move to
@@ -392,6 +453,7 @@ public class FingerprintService extends SystemService implements IHwBinder.Death
     }
 
     protected void handleError(long deviceId, int error, int vendorCode) {
+        if (error != 8) {
         ClientMonitor client = mCurrentClient;
         if (client instanceof InternalRemovalClient || client instanceof InternalEnumerateClient) {
             clearEnumerateState();
@@ -419,6 +481,7 @@ public class FingerprintService extends SystemService implements IHwBinder.Death
                 mCurrentUserId = UserHandle.USER_NULL;
             }
         }
+        }
     }
 
     protected void handleRemoved(long deviceId, int fingerId, int groupId, int remaining) {
@@ -445,7 +508,7 @@ public class FingerprintService extends SystemService implements IHwBinder.Death
     protected void handleAuthenticated(long deviceId, int fingerId, int groupId,
             ArrayList<Byte> token) {
         ClientMonitor client = mCurrentClient;
-        if (fingerId != 0) {
+        if (fingerId != 0 || true) {
             // Ugh...
             final byte[] byteToken = new byte[token.size()];
             for (int i = 0; i < token.size(); i++) {
@@ -468,6 +531,16 @@ public class FingerprintService extends SystemService implements IHwBinder.Death
         ClientMonitor client = mCurrentClient;
         if (client != null && client.onAcquired(acquiredInfo, vendorCode)) {
             removeClient(client);
+        } else if (client == null) {
+            Slog.e(TAG, "client == null");
+            List<IFingerprintClientActiveCallback> callbacks = mClientActiveCallbacks;
+            for (int i = 0; i < callbacks.size(); i++) {
+                try {
+                    ((IFingerprintClientActiveCallback) callbacks.get(i)).onFingerprintEventCallback(acquiredInfo, vendorCode, 0, 0);
+                } catch (RemoteException e) {
+                    mClientActiveCallbacks.remove(callbacks.get(i));
+                }
+            }
         }
         if (mPerformanceStats != null && getLockoutMode() == AuthenticationClient.LOCKOUT_NONE
                 && client instanceof AuthenticationClient) {
@@ -611,6 +684,11 @@ public class FingerprintService extends SystemService implements IHwBinder.Death
                     + newClient.getClass().getSuperclass().getSimpleName()
                     + "(" + newClient.getOwnerString() + ")"
                     + ", initiatedByClient = " + initiatedByClient);
+           if (isKeyguard(newClient.getOwnerString())) {
+                updateStatus(3, newClient.getClass().getSuperclass().getSimpleName());
+            } else {
+                updateStatus(4, newClient.getClass().getSuperclass().getSimpleName());
+            }
             notifyClientActiveCallbacks(true);
 
             newClient.start();
@@ -851,6 +929,7 @@ public class FingerprintService extends SystemService implements IHwBinder.Death
         for (int i = 0; i < callbacks.size(); i++) {
             try {
                 callbacks.get(i).onClientActiveChanged(isActive);
+                callbacks.get(i).onClientActiveChangedWithPkg(isActive, mCurrentClient != null ? mCurrentClient.getOwnerString() : null);
             } catch (RemoteException re) {
                 // If the remote is dead, stop notifying it
                 mClientActiveCallbacks.remove(callbacks.get(i));
@@ -946,7 +1025,7 @@ public class FingerprintService extends SystemService implements IHwBinder.Death
         final int groupId = userId; // default group for fingerprint enrollment
 
         EnrollClient client = new EnrollClient(getContext(), mHalDeviceId, token, receiver,
-                userId, groupId, cryptoToken, restricted, opPackageName) {
+                userId, groupId, cryptoToken, restricted, opPackageName, mStatusBarService) {
 
             @Override
             public IBiometricsFingerprint getFingerprintDaemon() {
@@ -1165,6 +1244,16 @@ public class FingerprintService extends SystemService implements IHwBinder.Death
                     }
                 }
             });
+        }
+
+        @Override
+        public int updateStatus(int status) {
+            return FingerprintService.this.updateStatus(status, "");
+        }
+
+        @Override
+        public int getStatus() {
+            return FingerprintService.this.getStatus();
         }
 
         @Override // Binder call

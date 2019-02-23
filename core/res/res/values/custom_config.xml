@@ -82,4 +82,13 @@
     <integer name="nav_gesture_swipe_timout">250</integer>
     <!-- signification move threshold - if stays below will trigger action -->
     <integer name="nav_gesture_move_threshold">4</integer>
+
+    <!-- Show a custom fingerprint dialog instead of default one -->
+    <bool name="config_showCustomFingerprintDialog">false</bool>
+
+    <!-- Path to the library that contains a device specific key handler -->
+    <string name="config_customFingerprintDialogLib" translatable="false"></string>
+
+    <!-- Name of that key handler class -->
+    <string name="config_customFingerprintDialogClass" translatable="false"></string>
 </resources>

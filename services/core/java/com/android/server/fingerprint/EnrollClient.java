@@ -17,15 +17,18 @@
 package com.android.server.fingerprint;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.hardware.biometrics.fingerprint.V2_1.IBiometricsFingerprint;
 import android.hardware.fingerprint.FingerprintManager;
 import android.hardware.fingerprint.IFingerprintServiceReceiver;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.util.Slog;
 
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.logging.nano.MetricsProto.MetricsEvent;
+import com.android.internal.statusbar.IStatusBarService;
 
 import java.util.Arrays;
 
@@ -36,12 +39,23 @@ public abstract class EnrollClient extends ClientMonitor {
     private static final long MS_PER_SEC = 1000;
     private static final int ENROLLMENT_TIMEOUT_MS = 60 * 1000; // 1 minute
     private byte[] mCryptoToken;
+    private IStatusBarService mStatusBarService;
+    private boolean mCustomDialog;
 
     public EnrollClient(Context context, long halDeviceId, IBinder token,
             IFingerprintServiceReceiver receiver, int userId, int groupId, byte [] cryptoToken,
-            boolean restricted, String owner) {
+            boolean restricted, String owner, IStatusBarService statusBarService) {
         super(context, halDeviceId, token, receiver, userId, groupId, restricted, owner);
         mCryptoToken = Arrays.copyOf(cryptoToken, cryptoToken.length);
+        mStatusBarService = statusBarService;
+        final Resources resources = context.getResources();
+        mCustomDialog = resources.getBoolean(com.android.internal.R.bool.config_showCustomFingerprintDialog);
+        Slog.e(TAG, "EnrollClient mCustomDialog : " + mCustomDialog);
+    }
+
+    @Override
+    public boolean onAcquired(int acquiredInfo, int vendorCode) {
+        return super.onAcquired(acquiredInfo, vendorCode);
     }
 
     @Override
@@ -95,7 +109,39 @@ public abstract class EnrollClient extends ClientMonitor {
         } catch (RemoteException e) {
             Slog.e(TAG, "startEnroll failed", e);
         }
+        if (mCustomDialog) {
+            try {
+                Bundle bundle = new Bundle();
+                bundle.putString("key_fingerprint_package_name", getOwnerString());
+                Slog.e(TAG, "startEnroll showCustomFingerprintDialog - mCustomDialog : " + mCustomDialog);
+                mStatusBarService.showCustomFingerprintDialog(bundle, null);
+            } catch (RemoteException e) {
+                Slog.e("FingerprintService", "Unable to show fingerprint dialog", e);
+            }
+        }
         return 0; // success
+    }
+
+    public void suspend() {
+        if (mCustomDialog) {
+            try {
+                mStatusBarService.hideCustomFingerprintDialog();
+            } catch (RemoteException e) {
+                Slog.e("FingerprintService", "Unable to hide fingerprint dialog", e);
+            }
+        }
+    }
+
+    public void resume() {
+        if (mCustomDialog) {
+            try {
+                Bundle bundle = new Bundle();
+                bundle.putString("key_fingerprint_package_name", getOwnerString());
+                this.mStatusBarService.showCustomFingerprintDialog(bundle, null);
+            } catch (RemoteException e) {
+                Slog.e("FingerprintService", "Unable to show fingerprint dialog", e);
+            }
+        }
     }
 
     @Override
@@ -113,6 +159,13 @@ public abstract class EnrollClient extends ClientMonitor {
             final int result = daemon.cancel();
             if (result != 0) {
                 Slog.w(TAG, "startEnrollCancel failed, result = " + result);
+                if (mCustomDialog) {
+                    try {
+                        mStatusBarService.hideCustomFingerprintDialog();
+                    } catch (RemoteException e) {
+                        Slog.e("FingerprintService", "Unable to hide fingerprint dialog", e);
+                    }
+                }
                 return result;
             }
         } catch (RemoteException e) {
@@ -122,7 +175,26 @@ public abstract class EnrollClient extends ClientMonitor {
             onError(FingerprintManager.FINGERPRINT_ERROR_CANCELED, 0 /* vendorCode */);
         }
         mAlreadyCancelled = true;
+        if (mCustomDialog) {
+            try {
+                mStatusBarService.hideCustomFingerprintDialog();
+            } catch (RemoteException e) {
+                Slog.e("FingerprintService", "Unable to hide fingerprint dialog", e);
+            }
+        }
         return 0;
+    }
+
+    @Override
+    public void destroy() {
+        super.destroy();
+        if (mCustomDialog) {
+            try {
+                mStatusBarService.hideCustomFingerprintDialog();
+            } catch (RemoteException e) {
+                Slog.e("FingerprintService", "Unable to hide fingerprint dialog", e);
+            }
+        }
     }
 
     @Override

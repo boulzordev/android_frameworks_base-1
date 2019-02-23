@@ -94,4 +94,7 @@ interface IFingerprintService {
 
     // Removes a callback set by addClientActiveCallback
     void removeClientActiveCallback(IFingerprintClientActiveCallback callback);
+    
+    int updateStatus(int status);
+    int getStatus();
 }

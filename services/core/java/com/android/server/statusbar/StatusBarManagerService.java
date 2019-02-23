@@ -557,6 +557,16 @@ public class StatusBarManagerService extends IStatusBarService.Stub {
     }
 
     @Override
+    public void showCustomFingerprintDialog(Bundle bundle, IBiometricPromptReceiver receiver) {
+        if (mBar != null) {
+            try {
+                mBar.showCustomFingerprintDialog(bundle, receiver);
+            } catch (RemoteException ex) {
+            }
+        }
+    }
+
+    @Override
     public void onFingerprintAuthenticated() {
         if (mBar != null) {
             try {
@@ -591,6 +601,16 @@ public class StatusBarManagerService extends IStatusBarService.Stub {
         if (mBar != null) {
             try {
                 mBar.hideFingerprintDialog();
+            } catch (RemoteException ex) {
+            }
+        }
+    }
+
+    @Override
+    public void hideCustomFingerprintDialog() {
+        if (mBar != null) {
+            try {
+                mBar.hideCustomFingerprintDialog();
             } catch (RemoteException ex) {
             }
         }

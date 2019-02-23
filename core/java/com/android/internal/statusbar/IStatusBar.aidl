@@ -142,6 +142,7 @@ oneway interface IStatusBar
 
     // Used to show the dialog when FingerprintService starts authentication
     void showFingerprintDialog(in Bundle bundle, IBiometricPromptReceiver receiver);
+    void showCustomFingerprintDialog(in Bundle bundle, IBiometricPromptReceiver receiver);
     // Used to hide the dialog when a finger is authenticated
     void onFingerprintAuthenticated();
     // Used to set a temporary message, e.g. fingerprint not recognized, finger moved too fast, etc
@@ -150,6 +151,7 @@ oneway interface IStatusBar
     void onFingerprintError(String error);
     // Used to hide the fingerprint dialog when the authenticationclient is stopped
     void hideFingerprintDialog();
+    void hideCustomFingerprintDialog();
 
     void toggleCameraFlash();
 }

@@ -912,6 +912,15 @@ public interface WindowManagerPolicy extends WindowManagerPolicyConstants {
             case TYPE_POINTER:
                 // the (mouse) pointer layer
                 return  33;
+            case 2305:
+                // the (mouse) pointer layer
+                return  102;
+            case 2304:
+                // the (mouse) pointer layer
+                return  101;
+            case 2306:
+                // the (mouse) pointer layer
+                return  103;
             default:
                 Slog.e("WindowManager", "Unknown window type: " + type);
                 return APPLICATION_LAYER;

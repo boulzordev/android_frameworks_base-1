@@ -63,4 +63,7 @@
 
   <java-symbol type="string" name="config_comboNetworkLocationProvider" />
 
+  <java-symbol type="bool" name="config_showCustomFingerprintDialog" />
+  <java-symbol type="string" name="config_customFingerprintDialogLib" />
+  <java-symbol type="string" name="config_customFingerprintDialogClass" />
 </resources>

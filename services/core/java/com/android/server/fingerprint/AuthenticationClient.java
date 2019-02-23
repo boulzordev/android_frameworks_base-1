@@ -17,6 +17,7 @@
 package com.android.server.fingerprint;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.hardware.biometrics.fingerprint.V2_1.IBiometricsFingerprint;
 import android.hardware.biometrics.BiometricPrompt;
 import android.hardware.biometrics.IBiometricPromptReceiver;
@@ -53,12 +54,13 @@ public abstract class AuthenticationClient extends ClientMonitor {
     private boolean mInLockout;
     private final FingerprintManager mFingerprintManager;
     protected boolean mDialogDismissed;
+    private boolean mCustomDialog;
 
     // Receives events from SystemUI and handles them before forwarding them to FingerprintDialog
     protected IBiometricPromptReceiver mDialogReceiver = new IBiometricPromptReceiver.Stub() {
         @Override // binder call
         public void onDialogDismissed(int reason) {
-            if (mBundle != null && mDialogReceiverFromClient != null) {
+            if ((mBundle != null || !mCustomDialog) && mDialogReceiverFromClient != null) {
                 try {
                     mDialogReceiverFromClient.onDialogDismissed(reason);
                     if (reason == BiometricPrompt.DISMISSED_REASON_USER_CANCEL) {
@@ -96,6 +98,8 @@ public abstract class AuthenticationClient extends ClientMonitor {
         mStatusBarService = statusBarService;
         mFingerprintManager = (FingerprintManager) getContext()
                 .getSystemService(Context.FINGERPRINT_SERVICE);
+        final Resources resources = context.getResources();
+        mCustomDialog = resources.getBoolean(com.android.internal.R.bool.config_showCustomFingerprintDialog);
     }
 
     @Override
@@ -110,7 +114,7 @@ public abstract class AuthenticationClient extends ClientMonitor {
     @Override
     public boolean onAcquired(int acquiredInfo, int vendorCode) {
         // If the dialog is showing, the client doesn't need to receive onAcquired messages.
-        if (mBundle != null) {
+        if (mBundle != null && !mCustomDialog) {
             try {
                 if (acquiredInfo != FingerprintManager.FINGERPRINT_ACQUIRED_GOOD) {
                     mStatusBarService.onFingerprintHelp(
@@ -140,7 +144,7 @@ public abstract class AuthenticationClient extends ClientMonitor {
             // FingerprintManager.FINGERPRINT_ERROR_CANCELED message.
             return true;
         }
-        if (mBundle != null) {
+        if (mBundle != null || !mCustomDialog) {
             try {
                 mStatusBarService.onFingerprintError(
                         mFingerprintManager.getErrorString(error, vendorCode));
@@ -157,7 +161,7 @@ public abstract class AuthenticationClient extends ClientMonitor {
         boolean authenticated = fingerId != 0;
 
         // If the fingerprint dialog is showing, notify authentication succeeded
-        if (mBundle != null) {
+        if (mBundle != null || !mCustomDialog) {
             try {
                 if (authenticated) {
                     mStatusBarService.onFingerprintAuthenticated();
@@ -195,7 +199,7 @@ public abstract class AuthenticationClient extends ClientMonitor {
             result = true; // client not listening
         }
         if (!authenticated) {
-            if (receiver != null) {
+            if (receiver != null || !mCustomDialog) {
                 vibrateError();
             }
             // allow system-defined limit of number of attempts before giving up
@@ -216,7 +220,7 @@ public abstract class AuthenticationClient extends ClientMonitor {
                     receiver.onError(getHalDeviceId(), errorCode, 0 /* vendorCode */);
 
                     // Send the lockout message to the system dialog
-                    if (mBundle != null) {
+                    if (mBundle != null && !mCustomDialog) {
                         mStatusBarService.onFingerprintError(
                                 mFingerprintManager.getErrorString(errorCode, 0 /* vendorCode */));
                     }
@@ -226,7 +230,7 @@ public abstract class AuthenticationClient extends ClientMonitor {
             }
             result |= lockoutMode != LOCKOUT_NONE; // in a lockout mode
         } else {
-            if (receiver != null) {
+            if (receiver != null || !mCustomDialog) {
                 vibrateSuccess();
             }
             result |= true; // we have a valid fingerprint, done
@@ -258,9 +262,13 @@ public abstract class AuthenticationClient extends ClientMonitor {
             if (DEBUG) Slog.w(TAG, "client " + getOwnerString() + " is authenticating...");
 
             // If authenticating with system dialog, show the dialog
-            if (mBundle != null) {
+            if (mBundle != null || mCustomDialog) {
                 try {
-                    mStatusBarService.showFingerprintDialog(mBundle, mDialogReceiver);
+                   if (mBundle == null) {
+                        mBundle = new Bundle();
+                    }
+                    mBundle.putString("key_fingerprint_package_name", getOwnerString());
+                    mStatusBarService.showCustomFingerprintDialog(mBundle, mDialogReceiver);
                 } catch (RemoteException e) {
                     Slog.e(TAG, "Unable to show fingerprint dialog", e);
                 }
@@ -300,9 +308,9 @@ public abstract class AuthenticationClient extends ClientMonitor {
             // dialog, we do not need to hide it since it's already hidden.
             // If the device is in lockout, don't hide the dialog - it will automatically hide
             // after BiometricPrompt.HIDE_DIALOG_DELAY
-            if (mBundle != null && !mDialogDismissed && !mInLockout) {
+            if ((mBundle != null || mCustomDialog) && !mDialogDismissed && !mInLockout) {
                 try {
-                    mStatusBarService.hideFingerprintDialog();
+                    mStatusBarService.hideCustomFingerprintDialog();
                 } catch (RemoteException e) {
                     Slog.e(TAG, "Unable to hide fingerprint dialog", e);
                 }
