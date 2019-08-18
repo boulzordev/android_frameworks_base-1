@@ -67,6 +67,7 @@ import com.android.systemui.R;
 import com.android.systemui.classifier.FalsingManager;
 import com.android.systemui.fragments.FragmentHostManager;
 import com.android.systemui.fragments.FragmentHostManager.FragmentListener;
+import com.android.systemui.omni.NotificationLightsView;
 import com.android.systemui.plugins.qs.QS;
 import com.android.systemui.statusbar.ExpandableNotificationRow;
 import com.android.systemui.statusbar.ExpandableView;
@@ -139,6 +140,7 @@ public class NotificationPanelView extends PanelView implements
     private QS mQs;
     private FrameLayout mQsFrame;
     private KeyguardStatusView mKeyguardStatusView;
+    private NotificationLightsView mLightsView;
     private View mQsNavbarScrim;
     protected NotificationsQuickSettingsContainer mNotificationContainerParent;
     protected NotificationStackScrollLayout mNotificationStackScroller;
@@ -357,6 +359,7 @@ public class NotificationPanelView extends PanelView implements
         super.onFinishInflate();
         mKeyguardStatusBar = findViewById(R.id.keyguard_header);
         mKeyguardStatusView = findViewById(R.id.keyguard_status_view);
+        mLightsView = (NotificationLightsView) findViewById(R.id.lights_container);
 
         mNotificationContainerParent = findViewById(R.id.notification_container_parent);
         mNotificationStackScroller = findViewById(R.id.notification_stack_scroller);
@@ -2863,6 +2866,13 @@ public class NotificationPanelView extends PanelView implements
         }
         mNotificationStackScroller.setPulsing(pulsing, animatePulse);
         mKeyguardStatusView.setPulsing(pulsing, animatePulse);
+
+        if (mLightsView != null) {
+            mLightsView.setVisibility(mPulsing ? View.VISIBLE : View.GONE);
+            if (mPulsing) {
+                mLightsView.animateNotification();
+            }
+        }
     }
 
     public void setAmbientIndicationBottomPadding(int ambientIndicationBottomPadding) {
